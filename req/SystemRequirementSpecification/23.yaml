@@ -1,0 +1,8 @@
+Description: It should be possible to import a module from xls
+Formatting: Requirement
+Internal: 1.0
+Req-Id: '23'
+Type: Requirement
+color: black
+downward_links: ''
+upward_links: ''

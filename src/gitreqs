@@ -1,0 +1,101 @@
+#!/usr/bin/env python3
+import sys
+import os
+from argparse import ArgumentParser
+from requirementmodule import requirement_module
+import importtools
+import exporttools
+
+
+def init(args):
+    requirement_module.init_module(
+        args.parent_path, args.module, args.module_prefix)
+
+
+def import_reqs(args):
+    module_path = args.project_root + '/' + args.module
+    project = requirement_module(args.project_root)
+    req_module = project.modules[args.module]
+    if args.format == 'junit':
+        importtools.add_test_results(module_path, args.file)
+        project = requirement_module(args.project_root)
+    elif args.format == 'xls':
+        importtools.import_from_xls(req_module, args.file)
+    elif args.format == 'md':
+        importtools.import_from_markdown(req_module, args.file)
+    else:
+        assert(false)
+
+    req_module.write_reqs()
+
+
+def export_reqs(args):
+    project = requirement_module(args.project_root)
+    req_module = project.modules[args.module]
+    if args.format == 'xls':
+        exporttools.convert_to_xls(req_module)
+        import pdb
+        pdb.set_trace()
+    elif args.format == 'md':
+        exporttools.convert_to_markdown(req_module)
+
+
+def create_report(args):
+    project = requirement_module(args.project_root)
+    if args.module is not None:
+        req_module = project.modules[args.module]
+    else:
+        req_module = project
+    if args.type == 'relations':
+        exporttools.create_report(req_module)
+
+
+if __name__ == "__main__":
+    args_parser = ArgumentParser()
+    subparsers = args_parser.add_subparsers()
+
+    export_parser = subparsers.add_parser(
+        "export", help="Read requirement module")
+    export_parser.add_argument(
+        "--project_root", help="Root path to the req project", default=os.getcwd())
+    export_parser.add_argument("--module", help="Name of requirement module")
+    export_parser.add_argument(
+        "--format", help="Export format, xls and md are valid")
+    export_parser.set_defaults(func=export_reqs)
+
+    import_parser = subparsers.add_parser(
+        "import", help="Read requirement module")
+    import_parser.add_argument(
+        "--project_root", help="Root path to the req project", default=os.getcwd())
+    import_parser.add_argument("--module", help="Name of requirement module")
+    import_parser.add_argument(
+        "--format", help="Export format, xls and junit are valid")
+    import_parser.add_argument(
+        "--file", help="Path to file to import, xls or junit is valid")
+    import_parser.set_defaults(func=import_reqs)
+
+    report_parser = subparsers.add_parser(
+        "report", help="Read requirement module")
+    report_parser.add_argument(
+        "--project_root", help="Root path to the req project", default=os.getcwd())
+    report_parser.add_argument("--module", help="Name of requirement module")
+    report_parser.add_argument(
+        "--type", help="Report type, relations are valid")
+    report_parser.set_defaults(func=create_report)
+
+    init_parser = subparsers.add_parser(
+        "init", help="Init new requirement module")
+    init_parser.add_argument(
+        "--parent_path", help="Root path to the req project", default=os.getcwd())
+    init_parser.add_argument(
+        "--module", help="Name of the new requirement module")
+    init_parser.add_argument(
+        "--module_prefix", help="Project prefix of the new requirement module")
+    init_parser.set_defaults(func=init)
+
+    args = args_parser.parse_args(sys.argv[1:])
+
+    if hasattr(args, 'func'):
+        args.func(args)
+    else:
+        args_parser.print_usage()

@@ -1,0 +1,8 @@
+Description: Each gitreqs module shall have a prefix
+Formatting: Requirement
+Internal: 1.0
+Req-Id: '30'
+Type: Requirement
+color: black
+downward_links: ''
+upward_links: ''

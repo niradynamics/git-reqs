@@ -1,0 +1,9 @@
+Description: Tables shall be preserved when importing and exporting
+  | with columns | and more columns |
+Formatting: Table
+Internal: 1.0
+Req-Id: '16'
+Type: Requirement
+color: black
+downward_links: ''
+upward_links: ''

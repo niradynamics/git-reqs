@@ -1,0 +1,9 @@
+Description: A gitreqs module shall be able to contain requirements and other gitreqs
+  modules
+Formatting: Requirement
+Internal: 1.0
+Req-Id: '5'
+Type: Requirement
+color: black
+downward_links: ''
+upward_links: ''

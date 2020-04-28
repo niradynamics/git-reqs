@@ -1,0 +1,8 @@
+Description: Links shall be parsed, separating link type from link id using a colon
+Formatting: BulletList_1
+Internal: 1.0
+Req-Id: '7'
+Type: Requirement
+color: black
+downward_links: ''
+upward_links: ''

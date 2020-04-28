@@ -1,0 +1,9 @@
+Description: Gitreqs shall use a command line interface to import, export, verify
+  and init a new module
+Formatting: Requirement
+Internal: 1.0
+Req-Id: '29'
+Type: Requirement
+color: black
+downward_links: ''
+upward_links: ''

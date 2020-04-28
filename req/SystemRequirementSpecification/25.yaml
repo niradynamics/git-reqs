@@ -1,0 +1,9 @@
+Description: When importing requirements, if no requirement id was specified a new
+  new number shall be assigned
+Formatting: Requirement
+Internal: 1.0
+Req-Id: '25'
+Type: Requirement
+color: black
+downward_links: ''
+upward_links: ''

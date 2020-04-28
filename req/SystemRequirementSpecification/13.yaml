@@ -1,0 +1,9 @@
+Description: It should be possible to explicitly set a link as external using the
+  extern_ prefix in the link name
+Formatting: Requirement
+Internal: 1.0
+Req-Id: '13'
+Type: Requirement
+color: black
+downward_links: ''
+upward_links: ''

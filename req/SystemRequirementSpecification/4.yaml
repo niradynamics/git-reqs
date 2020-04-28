@@ -1,0 +1,8 @@
+Description: Gitreqs shall store each requirment in a .yaml file
+Formatting: Requirement
+Internal: 1.0
+Req-Id: '4'
+Type: Requirement
+color: black
+downward_links: ''
+upward_links: ''

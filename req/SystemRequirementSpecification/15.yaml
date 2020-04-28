@@ -1,0 +1,9 @@
+Description: It should be possible to use tables | with columns | and more
+  columns |
+Formatting: Table
+Internal: 1.0
+Req-Id: '15'
+Type: Requirement
+color: black
+downward_links: ''
+upward_links: ''

@@ -1,0 +1,8 @@
+Description: It should be possible to link requirements, to external items
+Formatting: Requirement
+Internal: 1.0
+Req-Id: '12'
+Type: Requirement
+color: black
+downward_links: ''
+upward_links: extern_customer_req:CRS_01

@@ -1,0 +1,8 @@
+Description: Links shall have a direction, upward or downward
+Formatting: BulletList_1
+Internal: 1.0
+Req-Id: '9'
+Type: Requirement
+color: black
+downward_links: ''
+upward_links: ''
