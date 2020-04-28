@@ -34,8 +34,6 @@ def export_reqs(args):
     req_module = project.modules[args.module]
     if args.format == 'xls':
         exporttools.convert_to_xls(req_module)
-        import pdb
-        pdb.set_trace()
     elif args.format == 'md':
         exporttools.convert_to_markdown(req_module)
 

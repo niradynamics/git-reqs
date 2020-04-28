@@ -24,17 +24,26 @@ For reports and requirement documents, each module can be exported to markdown.
 
 ## User api
 gitreqs has a commandline interface.
+
+To create a root project called my_reqs with project prefix ABC:
+  .src/gitreqs init --module my_reqs --module_prefix ABC 
+
+Enter your new root specification:
+cd my_reqs
+
 To create a new module:
-  gitreqs init --module SystemRequirementsSpecification --module_prefix SRS 
+  ../src/gitreqs init --module SystemRequirementsSpecification --module_prefix SRS 
 
 To export a module to xls:
-  gitreqs export --module SystemRequirementSpecification --format xls
+  ../src/gitreqs export --module SystemRequirementsSpecification --format xls
+
+Modify the exported test.xls file, req-ids shall not be added manually. 
+
+To import the updated reqs from xls:
+  ../src/gitreqs import --module SystemRequirementsSpecification --format xls --file test.xls
 
 To export a module to markdown:
-  gitreqs export --module SystemRequirementSpecification --format md
-
-To import from xls:
-  gitreqs import --module SystemRequirementSpecification --format xls --file test.xls
+  ../src/gitreqs export --module SystemRequirementsSpecification --format md
 
 To create a requirement traceability report of the whole project:
-  gitreqs report --project_root . --type relations
+  ../src/gitreqs report --project_root . --type relations
