@@ -1,8 +1,6 @@
 import xlrd
 import os
 import yaml
-from requirementmodule import requirement_module
-
 
 def import_from_xls(reqmodule, req_xls):
     wb = xlrd.open_workbook(req_xls)
