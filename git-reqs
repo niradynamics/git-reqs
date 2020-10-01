@@ -2,9 +2,9 @@
 import sys
 import os
 from argparse import ArgumentParser
-from .requirementmodule import requirement_module
-from . import importtools
-from . import exporttools
+from git_reqs.requirementmodule import requirement_module
+from git_reqs import importtools
+from git_reqs import exporttools
 
 
 def init(args):

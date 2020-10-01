@@ -1,3 +1,4 @@
+import os.path
 import xlwt
 import networkx as nx
 from networkx.drawing.nx_pydot import to_pydot
@@ -17,11 +18,17 @@ def convert_to_xls(reqmodule):
     workbook.save(reqmodule.module_path + "/test.xls")
 
 
-def convert_to_markdown(reqmodule):
+def convert_to_markdown(reqmodule, hugo=False):
     md_file = open(reqmodule.module_path + "/reqs.md", 'w')
-    
+    if hugo:
+        md_file.write('---\n'
+                      'title: ' + os.path.basename(reqmodule.module_path) + '\n' 
+                      'weight: 1\n'
+                      'markup: mmark\n'
+                       '---\n')
+        
     for req in reqmodule.ordered_req_names:
-        #md_file.write('<!--- gitreq*:' + req + '-*->')
+
         
         if 'Formatting' in reqmodule.reqs.nodes[req].keys():
             formatting = reqmodule.reqs.nodes[req]['Formatting']
