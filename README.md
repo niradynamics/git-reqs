@@ -26,24 +26,48 @@ For reports and requirement documents, each module can be exported to markdown.
 gitreqs has a commandline interface.
 
 To create a root project called my_reqs with project prefix ABC:
-  .src/gitreqs init --module my_reqs --module_prefix ABC 
+```bash
+  git-reqs init --module my_reqs --module_prefix ABC 
+```
 
 Enter your new root specification:
-cd my_reqs
+```bash
+  cd my_reqs
+```
 
 To create a new module:
-  ../src/gitreqs init --module SystemRequirementsSpecification --module_prefix SRS 
-
+```bash
+  git-reqs init --module SystemRequirementsSpecification --module_prefix SRS 
+```
 To export a module to xls:
-  ../src/gitreqs export --module SystemRequirementsSpecification --format xls
+```bash
+  git-reqs export --module SystemRequirementsSpecification --format xls
+```
 
 Modify the exported test.xls file, req-ids shall not be added manually. 
 
 To import the updated reqs from xls:
-  ../src/gitreqs import --module SystemRequirementsSpecification --format xls --file test.xls
+```bash
+  git-reqs import --module SystemRequirementsSpecification --format xls --file test.xls
+```
 
 To export a module to markdown:
-  ../src/gitreqs export --module SystemRequirementsSpecification --format md
+```bash
+  git-reqs export --module SystemRequirementsSpecification --format md
+```
 
 To create a requirement traceability report of the whole project:
-  ../src/gitreqs report --project_root . --type relations
+```bash
+  git-reqs report --project_root . --type relations
+```
+## git-reqs as a python module
+git-reqs can also be used as a python module.
+To generate markdown documents for hugo git-reqs can be used in the following way:
+
+```python
+from git_reqs.requirementmodule import requirement_module
+from git_reqs import exporttools
+
+req_module = requirement_module(path_to_requirement_module)
+exporttools.convert_to_markdown(req_module, hugo=True)
+```
