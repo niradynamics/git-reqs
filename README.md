@@ -22,6 +22,12 @@ Requirements can be edited by any text editor, but the general idea is to use ex
 
 For reports and requirement documents, each module can be exported to markdown.
 
+## Installation
+git-reqs can be installed via python pip:
+```bash
+  pip install git-reqs
+```
+
 ## User api
 gitreqs has a commandline interface.
 
