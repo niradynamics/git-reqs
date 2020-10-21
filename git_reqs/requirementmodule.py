@@ -12,21 +12,21 @@ class requirement_module:
         self.module_path = module_path
 
         with open(module_path + '/next-id.yaml', 'r') as next_id_file:
-            self.next_id = yaml.load(next_id_file)
+            self.next_id = yaml.safe_load(next_id_file)
 
         with open(module_path + '/module-prefix.yaml', 'r') as proj_pref_file:
             if parent_prefix != "":
                 self.module_prefix = parent_prefix + \
-                    '_' + yaml.load(proj_pref_file)
+                    '_' + yaml.safe_load(proj_pref_file)
             else:
-                self.module_prefix = yaml.load(proj_pref_file)
+                self.module_prefix = yaml.safe_load(proj_pref_file)
 
         self.reqs = nx.DiGraph()
         self.fields, self.ordered_req_names = self.read_reqs()
 
         self.modules = {}
         with open(module_path + '/modules.yaml', 'r') as modules_file:
-            module_names = yaml.load(modules_file)
+            module_names = yaml.safe_load(modules_file)
 
         for module in module_names:
             self.modules[module] = requirement_module(
@@ -37,7 +37,7 @@ class requirement_module:
 
         if os.path.exists(module_path + '/test_results.temp.yaml'):
             with open(module_path + '/test_results.temp.yaml', 'r') as test_results_file:
-                test_result_files = yaml.load(test_results_file)
+                test_result_files = yaml.safe_load(test_results_file)
                 for test_file in test_result_files:
                     self.import_test_results(test_file)
 
@@ -64,7 +64,7 @@ class requirement_module:
         if os.path.exists(parent_path + '/modules.yaml'):
             print(parent_path + '/modules.yaml')
             with open(parent_path + '/modules.yaml', 'r') as parent_modules_file:
-                module_names = yaml.load(parent_modules_file)
+                module_names = yaml.safe_load(parent_modules_file)
                 module_names.append(module_name)
                 print(module_names)
             with open(parent_path + '/modules.yaml', 'w') as parent_modules_file:
@@ -73,7 +73,7 @@ class requirement_module:
     def clear_ordered_req_list(self):
         self.ordered_req_names = []
 
-    def add_req(self, req):
+    def add_req(self, req, position=-1):
         if req['Req-Id'] == "":
             id = str(self.next_id)
             self.next_id += 1
@@ -88,8 +88,10 @@ class requirement_module:
         self.reqs.nodes[self.module_prefix + '_' + id]['Req-Id'] = id
         for field in list(req.keys())[1:]:
             self.reqs.nodes[self.module_prefix + '_' + id][field] = req[field]
-
-        self.ordered_req_names.append(req['Req-Id'])
+        if position >= 0:
+            self.ordered_req_names.insert(position, req['Req-Id'])
+        else:
+            self.ordered_req_names.append(req['Req-Id'])
 
     def write_reqs(self):
         for req_name in self.ordered_req_names:
@@ -129,14 +131,14 @@ class requirement_module:
 
     def read_reqs(self):
         with open(self.module_path + '/reqs.yaml', 'r') as req_list_file:
-            req_list = yaml.load(req_list_file)
+            req_list = yaml.safe_load(req_list_file)
 
         fields = ['Req-Id', 'Type', 'Description',
                   'downward_links', 'upward_links']
         ordered_req_names = []
         for req_id in req_list:
             with open(self.module_path + '/' + req_id + '.yaml', 'r') as r:
-                req = yaml.load(r)
+                req = yaml.safe_load(r)
             # Add prefixes recursivly
             req_name = self.module_prefix + '_' + req_id
 

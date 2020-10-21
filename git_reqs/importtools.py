@@ -41,7 +41,7 @@ def import_from_markdown(reqmodule, req_md):
 def add_test_results(module_path, test_results_file):
     if os.path.exists(module_path + '/test_results.temp.yaml'):
         with open(module_path + '/test_results.temp.yaml', 'r') as testlist_file:
-            test_result_files = yaml.load(testlist_file)
+            test_result_files = yaml.safe_load(testlist_file)
             test_result_files.append(test_results_file)
     else:
         test_result_files = [test_results_file]
