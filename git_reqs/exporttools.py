@@ -82,15 +82,15 @@ def convert_to_markdown(reqmodule, hugo=False):
     md_file.close()
 
 
-def create_report(reqmodule):
-    md_file = open(reqmodule.module_path + "/report.md", 'w')
+def create_report(project, reqmodule):
+    md_file = open(project.modules[reqmodule].module_path + "/report.md", 'w')
 
-    for req in reqmodule.ordered_req_names:
+    for req in project.modules[reqmodule].ordered_req_names:
 
-        md_file.write(reqmodule.reqs.nodes[req]['Description'] +
+        md_file.write(project.reqs.nodes[req]['Description'] +
                       " [" + req + "]\n\n")
 
-        subgraph, ancestors, descendants = reqmodule.get_related_reqs(req)
+        subgraph, ancestors, descendants = project.get_related_reqs(req)
         roots = [v for v, d in subgraph.in_degree() if d == 0]
         leaves = [v for v, d in subgraph.out_degree() if d == 0]
 
@@ -111,6 +111,7 @@ def create_report(reqmodule):
                 desc_nodes.extend(descendants)
 
             for node_name in desc_nodes:
+                print(node_name)
                 node = dot.get_node(node_name)[0]
                 if 'Description' in node.obj_dict['attributes'].keys():
                     Desc = node.obj_dict['attributes']['Description']
