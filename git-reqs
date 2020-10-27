@@ -2,8 +2,7 @@
 import sys
 import os
 from argparse import ArgumentParser
-from git_reqs import requirementmodule
-from git_reqs.requirementmodule import requirement_module
+from git_reqs.requirementmodule import requirement_module, init_module
 from git_reqs import importtools
 from git_reqs import exporttools
 
@@ -14,7 +13,7 @@ def init(args):
         req_module.upgrade_module()
     else:
         assert args.module_prefix, "Module prefix is required"
-        requirementmodule.init_module(
+        init_module(
             args.parent_path, args.module, args.module_prefix, args.req_numbering_format)
 
 
