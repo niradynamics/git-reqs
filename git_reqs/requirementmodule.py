@@ -99,7 +99,7 @@ class requirement_module:
 
         self.reqs.nodes[self.module_prefix + '_' + id]['Req-Id'] = id
         for field in list(req.keys())[1:]:
-            self.reqs.nodes[self.module_prefix + '_' + id][field] = str(req[field])
+            self.reqs.nodes[self.module_prefix + '_' + id][field] = str(req[field]).strip()
         if position >= 0:
             self.ordered_req_names.insert(position, req['Req-Id'])
         else:
