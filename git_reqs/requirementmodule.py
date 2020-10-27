@@ -194,9 +194,10 @@ class requirement_module:
                     for link in links:
                         if ':' in link:
                             link_type, linked_req = link.split(':')
+                            link_type = link_type.strip()
                             # Don't add project prefix to extern links
                             if 'extern' not in link_type:
-                                linked_req = self.parent_prefix + '_' + linked_req
+                                linked_req = self.parent_prefix + '_' + linked_req.strip()
 
                             # Ok for nx to add node that already exists
                             self.reqs.add_node(linked_req)
