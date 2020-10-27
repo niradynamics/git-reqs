@@ -2,14 +2,20 @@
 import sys
 import os
 from argparse import ArgumentParser
+from git_reqs import requirementmodule
 from git_reqs.requirementmodule import requirement_module
 from git_reqs import importtools
 from git_reqs import exporttools
 
 
 def init(args):
-    requirement_module.init_module(
-        args.parent_path, args.module, args.module_prefix)
+    if args.upgrade:
+        req_module = requirement_module(args.parent_path + '/' + args.module)
+        req_module.upgrade_module()
+    else:
+        assert args.module_prefix, "Module prefix is required"
+        requirementmodule.init_module(
+            args.parent_path, args.module, args.module_prefix, args.req_numbering_format)
 
 
 def import_reqs(args):
@@ -24,7 +30,7 @@ def import_reqs(args):
     elif args.format == 'md':
         importtools.import_from_markdown(req_module, args.file)
     else:
-        assert(false)
+        assert False
 
     req_module.write_reqs()
 
@@ -40,12 +46,9 @@ def export_reqs(args):
 
 def create_report(args):
     project = requirement_module(args.project_root)
-    if args.module is not None:
-        req_module = project.modules[args.module]
-    else:
-        req_module = project
+
     if args.type == 'relations':
-        exporttools.create_report(req_module)
+        exporttools.create_report(project, args.module)
 
 
 if __name__ == "__main__":
@@ -86,9 +89,13 @@ if __name__ == "__main__":
     init_parser.add_argument(
         "--parent_path", help="Root path to the req project", default=os.getcwd())
     init_parser.add_argument(
-        "--module", help="Name of the new requirement module")
+        "--module", help="Name of the new requirement module", default='')
     init_parser.add_argument(
         "--module_prefix", help="Project prefix of the new requirement module")
+    init_parser.add_argument(
+        "--req_numbering_format", help="Numbering format of the reqs, numbers or time-hash are valid", default='time-hash')
+    init_parser.add_argument(
+        "--upgrade", action='store_true', help="Upgrade existing module to current format version")
     init_parser.set_defaults(func=init)
 
     args = args_parser.parse_args(sys.argv[1:])
