@@ -247,6 +247,7 @@ def init_module(parent_path, module_name, module_prefix, req_numbering='time_has
     config['req_version'] = FORMAT_VERSION
     config['req_number_format'] = req_numbering
     config['module_prefix'] = module_prefix
+    config['modules'] = []
     next_id = 1
 
     with open(module_path + '/config.yaml', 'w') as config_file:
@@ -265,7 +266,7 @@ def init_module(parent_path, module_name, module_prefix, req_numbering='time_has
             config = yaml.safe_load(parent_config_file)
             config['modules'].append(module_name)
             print(config['modules'])
-        with open(module_path + '/../config.yaml', 'r') as parent_config_file:
+        with open(module_path + '/../config.yaml', 'w') as parent_config_file:
             yaml.dump(config, parent_config_file)
         parent_git_repo = git.Repo(parent_path, search_parent_directories=True)
         parent_git_repo.git.add(module_path + '/../config.yaml')
