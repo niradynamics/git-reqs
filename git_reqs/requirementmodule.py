@@ -6,10 +6,10 @@ from junitparser import JUnitXml
 import git
 import hashlib
 import time
-FORMAT_VERSION = 0.2
+FORMAT_VERSION = 0.3
 
 class requirement_module:
-    def __init__(self, module_path, parent_prefix=""):
+    def __init__(self, module_path, parent_prefix="", root_module=True):
         self.parent_prefix = parent_prefix
         self.module_path = module_path
         self.git_repo = git.Repo(self.module_path, search_parent_directories=True)
@@ -52,11 +52,23 @@ class requirement_module:
                 module_path + '/' + module, parent_prefix=self.module_prefix)
             self.reqs = nx.compose(self.reqs, self.modules[module].reqs)
 
+        # Propagate the full graph upwards to all modules
+        if root_module:
+            self.update_to_root_graph(self.reqs)
+
+
         if os.path.exists(module_path + '/test_results.temp.yaml'):
             with open(module_path + '/test_results.temp.yaml', 'r') as test_results_file:
                 test_result_files = yaml.safe_load(test_results_file)
                 for test_file in test_result_files:
                     self.import_test_results(test_file)
+
+    # Propagates the reference of the full project graph to all modules
+    # This is so that changes can be done on any level, and all requirements shall only exist once.
+    def update_to_root_graph(self, root_reqs):
+        self.reqs = root_reqs
+        for module in self.config['modules']:
+            self.modules[module].update_to_root_graph(root_reqs)
 
     def upgrade_module(self):
         self.config['req_version'] = FORMAT_VERSION
@@ -106,6 +118,8 @@ class requirement_module:
         else:
             self.ordered_req_names.append(req['Req-Id'])
 
+        return req['Req-Id']
+
     def write_reqs(self):
         bare_ids = [req.split('_')[-1] for req in self.ordered_req_names]
 
@@ -145,6 +159,9 @@ class requirement_module:
                                   self.module_path + '/next-id.yaml')
 
         for _, module in self.modules.items():
+            # Copy the reqs from the parent module, since modifications can have been made here.
+            #module.reqs = self.reqs.copy()
+            #module.reqs.remove_nodes_from(n for n in self.reqs if n not in module.reqs)
             module.write_reqs()
 
     def import_test_results(self, test_result_file):
@@ -248,6 +265,8 @@ def init_module(parent_path, module_name, module_prefix, req_numbering='time_has
     config['req_number_format'] = req_numbering
     config['module_prefix'] = module_prefix
     config['modules'] = []
+    config['source_paths'] = []
+    config['source_extensions'] = []
     next_id = 1
 
     with open(module_path + '/config.yaml', 'w') as config_file:

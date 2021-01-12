@@ -26,17 +26,27 @@ def import_reqs(args):
         req_module = project
         module_path = args.project_root
 
+    if args.file:
+        file = args.file
+    else:
+        file = req_module.module_path + "/" + req_module.module_prefix + '.' + args.format
+
     if args.format == 'junit':
-        importtools.add_test_results(module_path, args.file)
+        importtools.add_test_results(module_path, file)
         project = requirement_module(args.project_root)
     elif args.format == 'xls':
-        importtools.import_from_xls(req_module, args.file)
+        importtools.import_from_xls(req_module, file)
     elif args.format == 'md':
-        importtools.import_from_markdown(req_module, args.file)
+        importtools.import_from_markdown(req_module, file)
+    elif args.format == 're.comments':
+        importtools.parse_requirement_links(project, file)
     else:
         assert False
 
     req_module.write_reqs()
+
+    if args.update_source and (args.format == 'xls' or args.format == 'md'):
+        export_reqs(args)
 
 
 def export_reqs(args):
@@ -45,10 +55,16 @@ def export_reqs(args):
         req_module = project.modules[args.module]
     else:
         req_module = project
+
+    if args.file:
+        file = args.file
+    else:
+        file = req_module.module_path + "/" + req_module.module_prefix + '.' + args.format
+
     if args.format == 'xls':
-        exporttools.convert_to_xls(req_module, os.path.abspath(args.project_root), args.module, os.path.abspath(__file__))
+        exporttools.convert_to_xls(req_module, file)
     elif args.format == 'md':
-        exporttools.convert_to_markdown(req_module)
+        exporttools.convert_to_markdown(req_module, file)
 
 
 def create_report(args):
@@ -69,6 +85,8 @@ if __name__ == "__main__":
     export_parser.add_argument("--module", help="Name of requirement module")
     export_parser.add_argument(
         "--format", help="Export format, xls and md are valid")
+    export_parser.add_argument(
+        "--file", help="Path to file to import")
     export_parser.set_defaults(func=export_reqs)
 
     import_parser = subparsers.add_parser(
@@ -79,7 +97,9 @@ if __name__ == "__main__":
     import_parser.add_argument(
         "--format", help="Export format, xls and junit are valid")
     import_parser.add_argument(
-        "--file", help="Path to file to import, xls or junit is valid")
+        "--file", help="Path to file to import")
+    import_parser.add_argument(
+        "--update-source", action='store_false', help="Export git-reqs modifications back to source (default true)")
     import_parser.set_defaults(func=import_reqs)
 
     report_parser = subparsers.add_parser(

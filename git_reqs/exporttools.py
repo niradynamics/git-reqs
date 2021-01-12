@@ -3,7 +3,7 @@ import xlwt
 import networkx as nx
 from networkx.drawing.nx_pydot import to_pydot
 
-def convert_to_xls(reqmodule):
+def convert_to_xls(reqmodule, file):
     workbook = xlwt.Workbook()
     sheet = workbook.add_sheet('Reqs')
 
@@ -15,11 +15,11 @@ def convert_to_xls(reqmodule):
                 sheet.write(k+1, i, reqmodule.reqs.nodes[req][field])
 
         sheet.write(0, i, field)
-    workbook.save(reqmodule.module_path + "/" + reqmodule.module_prefix + ".xls")
+    workbook.save(file)
 
 
-def convert_to_markdown(reqmodule, hugo=False):
-    md_file = open(reqmodule.module_path + "/" + reqmodule.module_prefix + ".md", 'w')
+def convert_to_markdown(reqmodule, file, hugo=False):
+    md_file = open(file)
     if hugo:
         md_file.write('---\n'
                       'title: ' + os.path.basename(reqmodule.module_path) + '\n' 

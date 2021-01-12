@@ -1,6 +1,9 @@
 import xlrd
 import os
 import yaml
+from pathlib import Path
+import re
+import networkx as nx
 
 def import_from_xls(reqmodule, req_xls):
     wb = xlrd.open_workbook(req_xls)
@@ -36,6 +39,60 @@ def import_from_markdown(reqmodule, req_md):
             elif record_req:
                 req['Description'] = req['Description'] + md_line
             md_line = md_file.readline()
+
+def parse_requirement_links(reqmodule, source_root):
+    if reqmodule.config['req_version'] >= 0.3:
+        regex_pattern = "git-reqs: (\S*) (\S*) (\S*)"
+        pattern = re.compile(regex_pattern)
+        for src_pth in reqmodule.config['source_paths']:
+            for ext in reqmodule.config['source_extensions']:
+                files = Path(source_root + '/' + src_pth).rglob('*.' + ext)
+                for f in files:
+                    print('Checking source file: %s' % f.name)
+                    with open(f.absolute(), 'r') as src_file:
+                        with open(str(f.absolute()) + "_tmp", 'w') as new_src_file:
+                            file_changed = False
+                            for line_nr, line in enumerate(src_file):
+                                res = re.search(pattern, line)
+                                if res:
+                                    dest_req_id = reqmodule.module_prefix + '_' + res.groups()[2].replace("\"", "")
+                                    dest_req = reqmodule.reqs.nodes[dest_req_id]
+                                    # Create a new req/test if required
+                                    link_name = res.groups()[0].split(':')
+                                    if link_name[0].startswith("?"):
+                                        req_type = link_name[1]
+                                        desc = link_name[2] if len(link_name) > 2 else ""
+
+                                        # Add the req in the correct module
+                                        submodule = reqmodule
+                                        for module in link_name[0][1:].split("/"):
+                                            submodule = submodule.modules[module]
+
+                                        name = submodule.add_req({"Req-Id": "",
+                                                                  "Type": req_type,
+                                                                  "Description": desc})
+                                        # Remove project prefix
+                                        name = '_'.join(name.split('_')[1:])
+
+                                        line = line.replace(':'.join([link_name[0], link_name[1]]), name)
+                                        file_changed = True
+                                    else:
+                                        name = res.groups()[0].split(':')[0]
+                                    link = ':'.join([res.groups()[1], name])
+                                    if not link in dest_req['downward_links']:
+                                        if not dest_req['downward_links'] == "":
+                                            dest_req['downward_links'] += ','
+                                        dest_req['downward_links'] += link
+                                new_src_file.write(line)
+                    if file_changed:
+                        os.remove(f.absolute())
+                        os.rename(str(f.absolute()) + "_tmp", f.absolute())
+                    else:
+                        os.remove(str(f.absolute()) + "_tmp")
+        reqmodule.write_reqs()
+
+    else:
+        print('Requirement link parsing is only available from req version 0.3 and up')
 
 
 def add_test_results(module_path, test_results_file):
