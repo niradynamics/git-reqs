@@ -48,6 +48,10 @@ def create_report(args):
 
     if args.type == 'relations':
         exporttools.create_report(project, args.module)
+    elif args.type == 'bokeh':
+        exporttools.draw_bokeh(project, args.req)
+    elif args.type == 'test_coverage':
+        exporttools.draw_coverage_diagrams(project)
 
 
 if __name__ == "__main__":
@@ -80,7 +84,9 @@ if __name__ == "__main__":
         "--project_root", help="Root path to the req project", default=os.getcwd())
     report_parser.add_argument("--module", help="Name of requirement module")
     report_parser.add_argument(
-        "--type", help="Report type, relations are valid")
+        "--type", help="Report type, relations, bokeh and test_coverage are valid")
+    report_parser.add_argument(
+        "--req", help="Bokeh plot only for a certain req and its relations", default=None)
     report_parser.set_defaults(func=create_report)
 
     init_parser = subparsers.add_parser(
@@ -92,7 +98,7 @@ if __name__ == "__main__":
     init_parser.add_argument(
         "--module_prefix", help="Project prefix of the new requirement module")
     init_parser.add_argument(
-        "--req_numbering_format", help="Numbering format of the reqs, numbers or time_hash are valid", default='time_hash')
+        "--req_numbering_format", help="Numbering format of the reqs, numbers or time-hash are valid", default='time_hash')
     init_parser.add_argument(
         "--upgrade", action='store_true', help="Upgrade existing module to current format version")
     init_parser.set_defaults(func=init)

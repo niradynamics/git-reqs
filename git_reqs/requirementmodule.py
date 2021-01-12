@@ -111,6 +111,12 @@ class requirement_module:
 
         # Write requirement updates
         for id, req_name in zip(bare_ids, self.ordered_req_names):
+            # pop fields we don't want to store in the files
+            if 'color' in self.reqs.nodes[req_name].keys():
+                self.reqs.nodes[req_name].pop('color')
+            if 'Internal' in self.reqs.nodes[req_name].keys():
+                self.reqs.nodes[req_name].pop('Internal')
+
             with open(self.module_path + '/' + id + '.yaml', 'w') as req_file:
                 yaml.dump(self.reqs.nodes[req_name], req_file)
             self.git_repo.git.add(self.module_path + '/' + id + '.yaml')
@@ -185,8 +191,6 @@ class requirement_module:
 
             # Create graph node for each req
             self.reqs.add_node(req_name)
-            self.reqs.nodes[req_name]['Internal'] = True
-            self.reqs.nodes[req_name]['color'] = 'black'
             for field in req.keys():
 
                 # Create links between linked nodes
@@ -199,14 +203,6 @@ class requirement_module:
                             # Don't add project prefix to extern links
                             if 'extern' not in link_type:
                                 linked_req = self.parent_prefix + '_' + linked_req.strip()
-
-                            # Ok for nx to add node that already exists
-                            self.reqs.add_node(linked_req)
-                            if self.module_prefix in linked_req:
-                                self.reqs.nodes[linked_req]['Internal'] = True
-                                self.reqs.nodes[linked_req]['color'] = 'black'
-                            else:
-                                self.reqs.nodes[linked_req]['color'] = 'gray'
 
                             # Verify that the requirement is not linked two ways.
                             uptest = (linked_req, req_name) in self.reqs.edges.keys(
@@ -228,6 +224,8 @@ class requirement_module:
                 # Add fields to node
                 self.reqs.nodes[req_name][field] = req[field]
 
+            self.reqs.nodes[req_name]['Internal'] = True
+            self.reqs.nodes[req_name]['color'] = 'black'
             if not req_name in ordered_req_names:
                 ordered_req_names.append(req_name)
 
