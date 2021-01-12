@@ -18,9 +18,14 @@ def init(args):
 
 
 def import_reqs(args):
-    module_path = args.project_root + '/' + args.module
     project = requirement_module(args.project_root)
-    req_module = project.modules[args.module]
+    if args.module:
+        req_module = project.modules[args.module]
+        module_path = args.project_root + '/' + args.module
+    else:
+        req_module = project
+        module_path = args.project_root
+
     if args.format == 'junit':
         importtools.add_test_results(module_path, args.file)
         project = requirement_module(args.project_root)
@@ -36,9 +41,12 @@ def import_reqs(args):
 
 def export_reqs(args):
     project = requirement_module(args.project_root)
-    req_module = project.modules[args.module]
+    if args.module:
+        req_module = project.modules[args.module]
+    else:
+        req_module = project
     if args.format == 'xls':
-        exporttools.convert_to_xls(req_module)
+        exporttools.convert_to_xls(req_module, os.path.abspath(args.project_root), args.module, os.path.abspath(__file__))
     elif args.format == 'md':
         exporttools.convert_to_markdown(req_module)
 
