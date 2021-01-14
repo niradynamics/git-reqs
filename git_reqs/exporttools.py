@@ -102,9 +102,10 @@ def create_report(project, reqmodule):
         leaves = [v for v, d in subgraph.out_degree() if d == 0]
 
         for node in subgraph.nodes.values():
-            if 'color' not in node.keys() or not node['color']:
-                node['color'] = 'gray'
+            if 'color' not in node['non_stored_fields'].keys() or not node['color']:
+                node['non_stored_fields']['color'] = 'gray'
             for key in list(node.keys()):
+                node['color'] = node['non_stored_fields']['color']
                 if key not in ['Description', 'color']:
                     node.pop(key)
 
@@ -137,38 +138,39 @@ def create_report(project, reqmodule):
     md_file.close()
 
 def draw_coverage_diagrams(reqmodule):
-    untested_reqs = 0
-    tested_reqs = 0
+
+    only_reqs_subgraph = reqmodule.get_reqs_with_attr('Type', 'Requirement')
+    total_reqs = len(only_reqs_subgraph.nodes)
+    tested_reqs = [n for n, r in only_reqs_subgraph.nodes.items()
+                   if 'non_stored_fields' in r.keys()
+                    and 'verifies_link_status' in r['non_stored_fields'].keys()
+                    and r['non_stored_fields']['verifies_link_status'] > 0]
+    full_tested_reqs = [n for n, r in only_reqs_subgraph.nodes.items()
+                   if 'non_stored_fields' in r.keys()
+                    and 'verifies_link_status' in r['non_stored_fields'].keys()
+                    and r['non_stored_fields']['verifies_link_status'] > 1]
+    untested_reqs = [n for n, r in only_reqs_subgraph.nodes.items()
+                   if n not in tested_reqs]
+
     passed_reqs = 0
     failed_reqs = 0
 
-    for req_name, req in reqmodule.reqs.nodes.items():
-        if 'Type' in req.keys() and req['Type'] == 'Requirement':
-            subgraph, ancestors, descendants = reqmodule.get_related_reqs(req_name)
-            leaves = [v for v, d in subgraph.out_degree() if d == 0]
 
-            passed = 0
-            tested = 0
-            failed = 0
-            for leave in leaves:
-                if 'Type' in reqmodule.reqs.nodes[leave].keys() and reqmodule.reqs.nodes[leave]['Type'] == 'Test-Result':
-                    tested += 1
-                    if reqmodule.reqs.nodes[leave]['result'] == 'Passed':
-                        passed += 1
-                    else:
-                        failed += 1
-                elif 'Type' in reqmodule.reqs.nodes[leave].keys() and reqmodule.reqs.nodes[leave]['Type'] == 'Testcase':
-                    tested += 1
-            if passed == len(leaves):
-                passed_reqs += 1
-            elif failed > 0:
-                failed_reqs += 1
-            elif tested == len(leaves):
-                tested_reqs += 1
-            else:
-                untested_reqs += 1
-
-    total_reqs = passed_reqs + failed_reqs + tested_reqs + untested_reqs
+    for req in tested_reqs:
+        subgraph, ancestors, descendants = reqmodule.get_related_reqs(req)
+        leaves = [v for v, d in subgraph.out_degree() if d == 0]
+        passed = 0
+        failed = 0
+        for leaf in leaves:
+            if 'Type' in subgraph.nodes[leaf].keys() and subgraph.nodes[leaf]['Type'] == 'Test-Result':
+                if subgraph.nodes[leaf]['result'] == 'Passed':
+                    passed += 1
+                else:
+                    failed += 1
+        if passed == len(leaves) and req in full_tested_reqs:
+            passed_reqs += 1
+        elif failed > 0:
+            failed_reqs += 1
 
     # file to save the model
     output_file(reqmodule.module_path + "/" + reqmodule.module_prefix + "_TestCoverage.html")
@@ -177,10 +179,14 @@ def draw_coverage_diagrams(reqmodule):
     graph = figure(title="Test Coverage")
 
     # name of the sectors
-    sectors = ["Passed", "Failed", "Linked to Test", "Untested"]
+    sectors = ["Passed", "Failed", "Linked to full test coverage", "Partly tested", "Untested"]
 
     # % tage weightage of the sectors
-    parts = [passed_reqs/total_reqs, failed_reqs/total_reqs, tested_reqs/total_reqs, untested_reqs/total_reqs]
+    parts = [passed_reqs/total_reqs,
+             failed_reqs/total_reqs,
+             len(full_tested_reqs)/total_reqs,
+             len(tested_reqs)/total_reqs,
+             len(untested_reqs)/total_reqs]
 
     # converting into radians
     radians = [math.radians(part * 360) for part in parts]
@@ -203,7 +209,7 @@ def draw_coverage_diagrams(reqmodule):
     radius = 1
 
     # color of the wedges
-    color = ["green", "red", "lightblue", "grey"]
+    color = ["green", "red", "lightblue", "lightgrey", "grey"]
 
     # plotting the graph
     for i in range(len(sectors)):
