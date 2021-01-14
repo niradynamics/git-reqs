@@ -61,7 +61,7 @@ def parse_requirement_links(reqmodule, source_root):
                                     link_name = res.groups()[0].split(':')
                                     if link_name[0].startswith("?"):
                                         req_type = link_name[1]
-                                        desc = link_name[2] if len(link_name) > 2 else ""
+                                        desc = link_name[2].replace('..', ' ') if len(link_name) > 2 else ""
 
                                         # Add the req in the correct module
                                         submodule = reqmodule
@@ -74,7 +74,7 @@ def parse_requirement_links(reqmodule, source_root):
                                         # Remove project prefix
                                         name = '_'.join(name.split('_')[1:])
 
-                                        line = line.replace(':'.join([link_name[0], link_name[1]]), name)
+                                        line = line.replace(res.groups()[0], name)
                                         file_changed = True
                                     else:
                                         name = res.groups()[0].split(':')[0]
