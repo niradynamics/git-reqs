@@ -147,7 +147,7 @@ class requirement_module:
         for _, module in self.modules.items():
             module.write_reqs()
 
-    def import_test_results(self, test_result_file):
+    def import_test_results(self, test_result_file, connect_with_naming_convention=True):
         test_results = JUnitXml.fromfile(test_result_file)
         if isinstance(test_results, junitparser.junitparser.TestSuite):
             test_results = [test_results]
@@ -164,6 +164,12 @@ class requirement_module:
                 # Ok for nx to add node that already exists
                 self.reqs.add_node(case.name, result=result,
                                    color=color, Type='Test-Result')
+
+                if connect_with_naming_convention:
+                    for req_name, req_content in self.reqs.nodes.items():
+                        if 'Description' in req_content.keys() and case.name in req_content['Description']:
+                            self.reqs.add_edge(req_name, case.name)
+
 
     def get_related_reqs(self, req_name):
         ancestors = nx.ancestors(self.reqs, req_name)
