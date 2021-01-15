@@ -7,6 +7,7 @@ import git
 import hashlib
 import time
 FORMAT_VERSION = 0.3
+import re
 
 class requirement_module:
     def __init__(self, module_path, parent_prefix="", root_module=True):
@@ -164,7 +165,12 @@ class requirement_module:
             #module.reqs.remove_nodes_from(n for n in self.reqs if n not in module.reqs)
             module.write_reqs()
 
+    def get_link_regex(self):
+        regex_pattern = "git-reqs: (\S*) (\S*) (\S*)"
+        return re.compile(regex_pattern)
+
     def import_test_results(self, test_result_file):
+        pattern = self.get_link_regex()
         test_results = JUnitXml.fromfile(test_result_file)
         if isinstance(test_results, junitparser.junitparser.TestSuite):
             test_results = [test_results]
@@ -178,9 +184,21 @@ class requirement_module:
                     result = case.result.tostring()
                     color = 'red'
 
-                # Ok for nx to add node that already exists
-                self.reqs.add_node(case.name, result=result,
-                                   color=color, Type='Test-Result')
+                match = re.search(pattern, case.name)
+                if match:
+                    testname = '_'.join([self.module_prefix.split('_')[0],match.groups()[0]])
+                    linktype = match.groups()[1]
+                    # Ok for nx to add node that already exists
+                    self.reqs.add_node(testname + '_result', result=result,
+                                       color=color, Type='Test-Result', Description=case.name)
+                    self.reqs.add_edge(testname, testname + '_result', type=linktype)
+                else:
+                    self.reqs.add_node(case.name + '_result', result=result,
+                                       color=color, Type='Test-Result')
+
+                    for req_name, req_content in self.reqs.nodes.items():
+                        if 'Description' in req_content.keys() and case.name in req_content['Description']:
+                            self.reqs.add_edge(req_name, case.name)
 
     def get_related_reqs(self, req_name):
         ancestors = nx.ancestors(self.reqs, req_name)

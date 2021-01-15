@@ -42,8 +42,7 @@ def import_from_markdown(reqmodule, req_md):
 
 def parse_requirement_links(reqmodule, source_root):
     if reqmodule.config['req_version'] >= 0.3:
-        regex_pattern = "git-reqs: (\S*) (\S*) (\S*)"
-        pattern = re.compile(regex_pattern)
+        pattern = reqmodule.get_link_regex()
         for src_pth in reqmodule.config['source_paths']:
             for ext in reqmodule.config['source_extensions']:
                 files = Path(source_root + '/' + src_pth).rglob('*.' + ext)
@@ -103,5 +102,5 @@ def add_test_results(module_path, test_results_file):
     else:
         test_result_files = [test_results_file]
 
-    with open(module_path + '/test_results.temp.json', 'w') as testlist_file:
+    with open(module_path + '/test_results.temp.yaml', 'w') as testlist_file:
         yaml.dump(test_result_files, testlist_file)
