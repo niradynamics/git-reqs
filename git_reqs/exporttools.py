@@ -138,8 +138,8 @@ def create_report(project, reqmodule):
     md_file.close()
 
 def draw_coverage_diagrams(reqmodule):
-
-    only_reqs_subgraph = reqmodule.get_reqs_with_attr('Type', 'Requirement')
+    only_reqs_subgraph = reqmodule.get_reqs_with_attr(('Type', 'Requirement'))
+    reqs_test_testresult_subgraph = reqmodule.get_reqs_with_attr([('Type', 'Requirement'), ('Type', 'Testcase'), ('Type', 'Test-Result')])
     total_reqs = len(only_reqs_subgraph.nodes)
     tested_reqs = [n for n, r in only_reqs_subgraph.nodes.items()
                    if 'non_stored_fields' in r.keys()
@@ -157,7 +157,7 @@ def draw_coverage_diagrams(reqmodule):
 
 
     for req in tested_reqs:
-        subgraph, ancestors, descendants = reqmodule.get_related_reqs(req)
+        subgraph, ancestors, descendants = reqmodule.get_related_reqs(req, reqs_test_testresult_subgraph)
         leaves = [v for v, d in subgraph.out_degree() if d == 0]
         passed = 0
         failed = 0

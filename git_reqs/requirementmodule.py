@@ -243,13 +243,21 @@ class requirement_module:
                 self.reqs.add_node(case.name, result=result,
                                    non_stored_fields={'color': color}, Type='Test-Result')
 
-    def get_related_reqs(self, req_name):
-        ancestors = nx.ancestors(self.reqs, req_name)
-        descendants = nx.descendants(self.reqs, req_name)
-        return nx.subgraph(self.reqs, ancestors | descendants | {req_name}), ancestors, descendants
+    def get_related_reqs(self, req_name, subgraph=None):
+        if subgraph:
+            reqs = subgraph
+        else:
+            reqs = self.reqs
+        ancestors = nx.ancestors(reqs, req_name)
+        descendants = nx.descendants(reqs, req_name)
+        return nx.subgraph(reqs, ancestors | descendants | {req_name}), ancestors, descendants
 
-    def get_reqs_with_attr(self, field_name, key):
-        nodes = [n for n, d in self.reqs.nodes.items() if field_name in d.keys() and d[field_name] == key]
+    def get_reqs_with_attr(self, fields):
+        if not isinstance(fields, list):
+            fields = [fields]
+        nodes = []
+        for field in fields:
+            nodes.extend([n for n, d in self.reqs.nodes.items() if field[0] in d.keys() and d[field[0]] == field[1]])
         return self.reqs.subgraph(nodes)
 
 def init_module(parent_path, module_name, module_prefix, req_numbering='time_hash'):
