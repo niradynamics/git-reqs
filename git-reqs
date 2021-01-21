@@ -18,9 +18,14 @@ def init(args):
 
 
 def import_reqs(args):
-    module_path = args.project_root + '/' + args.module
     project = requirement_module(args.project_root)
-    req_module = project.modules[args.module]
+    if args.module:
+        req_module = project.modules[args.module]
+        module_path = args.project_root + '/' + args.module
+    else:
+        req_module = project
+        module_path = args.project_root
+
     if args.format == 'junit':
         importtools.add_test_results(module_path, args.file)
         project = requirement_module(args.project_root)
@@ -29,18 +34,23 @@ def import_reqs(args):
     elif args.format == 'md':
         importtools.import_from_markdown(req_module, args.file)
     else:
-        assert False
+        assert False, "Invalid format. See available formats with git-reqs import --help"
 
     req_module.write_reqs()
 
 
 def export_reqs(args):
     project = requirement_module(args.project_root)
-    req_module = project.modules[args.module]
+    if args.module:
+        req_module = project.modules[args.module]
+    else:
+        req_module = project
     if args.format == 'xls':
-        exporttools.convert_to_xls(req_module)
+        exporttools.convert_to_xls(req_module, os.path.abspath(args.project_root), args.module, os.path.abspath(__file__))
     elif args.format == 'md':
         exporttools.convert_to_markdown(req_module)
+    else:
+        assert False, "Invalid format. See available formats with git-reqs export --help"
 
 
 def create_report(args):
@@ -48,6 +58,7 @@ def create_report(args):
 
     if args.type == 'relations':
         exporttools.create_report(project, args.module)
+
 
 
 if __name__ == "__main__":
