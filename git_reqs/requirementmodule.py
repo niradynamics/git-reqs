@@ -50,7 +50,7 @@ class requirement_module:
         self.modules = {}
         for module in self.config['modules']:
             self.modules[module] = requirement_module(
-                module_path + '/' + module, parent_prefix=self.module_prefix)
+                module_path + '/' + module, parent_prefix=self.module_prefix, root_module=False)
             self.reqs = nx.compose(self.reqs, self.modules[module].reqs)
 
         # Propagate the full graph upwards to all modules
@@ -63,8 +63,82 @@ class requirement_module:
                 test_result_files = yaml.safe_load(test_results_file)
                 for test_file in test_result_files:
                     self.import_test_results(test_file)
+        if root_module:
+            self.update_link_status()
 
-    # Propagates the reference of the full project graph to all modules
+    def read_reqs(self):
+        with open(self.module_path + '/reqs.yaml', 'r') as req_list_file:
+            req_list = yaml.safe_load(req_list_file)
+
+        fields = ['Req-Id', 'Type', 'Description',
+                  'downward_links', 'upward_links']
+        ordered_req_names = []
+        for req_id in req_list:
+            with open(self.module_path + '/' + req_id + '.yaml', 'r') as r:
+                req = yaml.safe_load(r)
+            # Add prefixes recursivly
+            req_name = self.module_prefix + '_' + req_id
+
+            # Create graph node for each req
+            self.reqs.add_node(req_name)
+            for field in req.keys():
+
+                # Create links between linked nodes
+                if "links" in field:
+                    links = req[field].split(',')
+                    for link in links:
+                        if ':' in link:
+                            link_type, linked_req = link.split(':')
+                            link_type = link_type.strip()
+                            # Don't add project prefix to extern links
+                            if 'extern' not in link_type:
+                                linked_req = self.parent_prefix + '_' + linked_req.strip()
+
+                            # Verify that the requirement is not linked two ways.
+                            uptest = (linked_req, req_name) in self.reqs.edges.keys(
+                            ) and self.reqs.edges[(linked_req, req_name)]['type'] == link_type
+                            downtest = (req_name, linked_req) in self.reqs.edges.keys(
+                            ) and self.reqs.edges[(req_name, linked_req)]['type'] == link_type
+                            assert(not (uptest and downtest))
+
+                            if "upward" in field:
+                                self.reqs.add_edge(
+                                    linked_req, req_name, type=link_type)
+                            else:
+                                self.reqs.add_edge(
+                                    req_name, linked_req, type=link_type)
+
+                if not field in fields:
+                    fields.append(field)
+
+                # Add fields to node
+                self.reqs.nodes[req_name][field] = req[field]
+
+            self.reqs.nodes[req_name]['non_stored_fields'] = {}
+            self.reqs.nodes[req_name]['non_stored_fields']['Internal'] = True
+            self.reqs.nodes[req_name]['non_stored_fields']['color'] = 'black'
+            if not req_name in ordered_req_names:
+                ordered_req_names.append(req_name)
+
+        return fields, ordered_req_names
+
+    def update_link_status(self):
+        for req in self.reqs:
+            # Check all outgoing links
+            for descendant_link in self.reqs.out_edges(req):
+                edge_data = self.reqs.get_edge_data(descendant_link[0], descendant_link[1])
+                if 'partly_' in edge_data['type']:
+                    link_type = edge_data['type'][len('partly_'):-5] + '_link_status'
+                    quota = [float(n) for n in edge_data['type'][-4:-1].split('/')]
+                    fulfillment = quota[0]/quota[1]
+                else:
+                    link_type = edge_data['type'] + '_link_status'
+                    fulfillment = 1
+                if not link_type in self.reqs.nodes[req]['non_stored_fields'].keys():
+                    self.reqs.nodes[req]['non_stored_fields'][link_type] = 0
+                self.reqs.nodes[req]['non_stored_fields'][link_type] += fulfillment
+	
+	# Propagates the reference of the full project graph to all modules
     # This is so that changes can be done on any level, and all requirements shall only exist once.
     def update_to_root_graph(self, root_reqs):
         self.reqs = root_reqs
@@ -126,6 +200,10 @@ class requirement_module:
 
         # Write requirement updates
         for id, req_name in zip(bare_ids, self.ordered_req_names):
+            # pop fields we don't want to store in the files
+            if ['non_stored_fields'] in self.reqs.nodes[req_name].keys():
+                self.reqs.nodes[req_name].pop('non_stored_fields')
+
             with open(self.module_path + '/' + id + '.yaml', 'w') as req_file:
                 yaml.dump(self.reqs.nodes[req_name], req_file)
             self.git_repo.git.add(self.module_path + '/' + id + '.yaml')
@@ -169,7 +247,7 @@ class requirement_module:
         regex_pattern = "git-reqs: (\S*) (\S*) (\S*)"
         return re.compile(regex_pattern)
 
-    def import_test_results(self, test_result_file):
+    def import_test_results(self, test_result_file, connect_with_naming_convention=True):
         pattern = self.get_link_regex()
         test_results = JUnitXml.fromfile(test_result_file)
         if isinstance(test_results, junitparser.junitparser.TestSuite):
@@ -192,81 +270,30 @@ class requirement_module:
                     self.reqs.add_node(testname + '_result', result=result,
                                        color=color, Type='Test-Result', Description=case.name)
                     self.reqs.add_edge(testname, testname + '_result', type=linktype)
-                else:
+                elif connect_with_naming_convention:
                     self.reqs.add_node(case.name + '_result', result=result,
-                                       color=color, Type='Test-Result')
+                                   non_stored_fields={'color': color}, Type='Test-Result')
 
                     for req_name, req_content in self.reqs.nodes.items():
                         if 'Description' in req_content.keys() and case.name in req_content['Description']:
                             self.reqs.add_edge(req_name, case.name)
 
-    def get_related_reqs(self, req_name):
-        ancestors = nx.ancestors(self.reqs, req_name)
-        descendants = nx.descendants(self.reqs, req_name)
-        return nx.subgraph(self.reqs, ancestors | descendants | {req_name}), ancestors, descendants
+    def get_related_reqs(self, req_name, subgraph=None):
+        if subgraph:
+            reqs = subgraph
+        else:
+            reqs = self.reqs
+        ancestors = nx.ancestors(reqs, req_name)
+        descendants = nx.descendants(reqs, req_name)
+        return nx.subgraph(reqs, ancestors | descendants | {req_name}), ancestors, descendants
 
-    def read_reqs(self):
-        with open(self.module_path + '/reqs.yaml', 'r') as req_list_file:
-            req_list = yaml.safe_load(req_list_file)
-
-        fields = ['Req-Id', 'Type', 'Description',
-                  'downward_links', 'upward_links']
-        ordered_req_names = []
-        for req_id in req_list:
-            with open(self.module_path + '/' + req_id + '.yaml', 'r') as r:
-                req = yaml.safe_load(r)
-            # Add prefixes recursivly
-            req_name = self.module_prefix + '_' + req_id
-
-            # Create graph node for each req
-            self.reqs.add_node(req_name)
-            self.reqs.nodes[req_name]['Internal'] = True
-            self.reqs.nodes[req_name]['color'] = 'black'
-            for field in req.keys():
-
-                # Create links between linked nodes
-                if "links" in field:
-                    links = req[field].split(',')
-                    for link in links:
-                        if ':' in link:
-                            link_type, linked_req = link.split(':')
-                            link_type = link_type.strip()
-                            # Don't add project prefix to extern links
-                            if 'extern' not in link_type:
-                                linked_req = self.parent_prefix + '_' + linked_req.strip()
-
-                            # Ok for nx to add node that already exists
-                            self.reqs.add_node(linked_req)
-                            if self.module_prefix in linked_req:
-                                self.reqs.nodes[linked_req]['Internal'] = True
-                                self.reqs.nodes[linked_req]['color'] = 'black'
-                            else:
-                                self.reqs.nodes[linked_req]['color'] = 'gray'
-
-                            # Verify that the requirement is not linked two ways.
-                            uptest = (linked_req, req_name) in self.reqs.edges.keys(
-                            ) and self.reqs.edges[(linked_req, req_name)]['type'] == link_type
-                            downtest = (req_name, linked_req) in self.reqs.edges.keys(
-                            ) and self.reqs.edges[(req_name, linked_req)]['type'] == link_type
-                            assert(not (uptest and downtest))
-
-                            if "upward" in field:
-                                self.reqs.add_edge(
-                                    linked_req, req_name, type=link_type)
-                            else:
-                                self.reqs.add_edge(
-                                    req_name, linked_req, type=link_type)
-
-                if not field in fields:
-                    fields.append(field)
-
-                # Add fields to node
-                self.reqs.nodes[req_name][field] = req[field]
-
-            if not req_name in ordered_req_names:
-                ordered_req_names.append(req_name)
-
-        return fields, ordered_req_names
+    def get_reqs_with_attr(self, fields):
+        if not isinstance(fields, list):
+            fields = [fields]
+        nodes = []
+        for field in fields:
+            nodes.extend([n for n, d in self.reqs.nodes.items() if field[0] in d.keys() and d[field[0]] == field[1]])
+        return self.reqs.subgraph(nodes)
 
 def init_module(parent_path, module_name, module_prefix, req_numbering='time_hash'):
     module_path = parent_path + '/' + module_name
