@@ -47,5 +47,5 @@ def add_test_results(module_path, test_results_file):
     else:
         test_result_files = [test_results_file]
 
-    with open(module_path + '/test_results.temp.json', 'w') as testlist_file:
+    with open(module_path + '/test_results.temp.yaml', 'w') as testlist_file:
         yaml.dump(test_result_files, testlist_file)

@@ -22,11 +22,11 @@ def convert_to_xls(reqmodule):
                 sheet.write(k+1, i, reqmodule.reqs.nodes[req][field])
 
         sheet.write(0, i, field)
-    workbook.save(reqmodule.module_path + "/test.xls")
+    workbook.save(reqmodule.module_path + "/" + reqmodule.module_prefix + ".xls")
 
 
 def convert_to_markdown(reqmodule, hugo=False):
-    md_file = open(reqmodule.module_path + "/reqs.md", 'w')
+    md_file = open(reqmodule.module_path + "/" + reqmodule.module_prefix + ".md", 'w')
     if hugo:
         md_file.write('---\n'
                       'title: ' + os.path.basename(reqmodule.module_path) + '\n' 
@@ -90,7 +90,7 @@ def convert_to_markdown(reqmodule, hugo=False):
 
 
 def create_report(project, reqmodule):
-    md_file = open(project.modules[reqmodule].module_path + "/report.md", 'w')
+    md_file = open(reqmodule.module_path + "/" + reqmodule.module_prefix + "_report.md", 'w')
 
     for req in project.modules[reqmodule].ordered_req_names:
 
