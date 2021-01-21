@@ -12,7 +12,8 @@ def import_from_xls(reqmodule, req_xls):
     req = {}
     for row in range(1, sheet.nrows):
         for col, field in enumerate(fields):
-            req[field] = sheet.cell_value(row, col)
+            if field != 'non_stored_fields':
+                req[field] = sheet.cell_value(row, col)
         reqmodule.add_req(req)
 
 
