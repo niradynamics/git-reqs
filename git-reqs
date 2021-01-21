@@ -52,6 +52,8 @@ def create_report(args):
         exporttools.draw_bokeh(project, args.req)
     elif args.type == 'test_coverage':
         exporttools.draw_coverage_diagrams(project)
+    else:
+        assert False, "Invalid format. See available formats with git-reqs report --help"
 
 
 if __name__ == "__main__":
@@ -98,7 +100,7 @@ if __name__ == "__main__":
     init_parser.add_argument(
         "--module_prefix", help="Project prefix of the new requirement module")
     init_parser.add_argument(
-        "--req_numbering_format", help="Numbering format of the reqs, numbers or time-hash are valid", default='time_hash')
+        "--req_numbering_format", help="Numbering format of the reqs, numbers or time_hash are valid", default='time_hash')
     init_parser.add_argument(
         "--upgrade", action='store_true', help="Upgrade existing module to current format version")
     init_parser.set_defaults(func=init)
