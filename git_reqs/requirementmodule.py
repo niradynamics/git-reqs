@@ -159,6 +159,15 @@ class requirement_module:
 
     def clear_ordered_req_list(self):
         self.ordered_req_names = []
+    def add_req_with_path(self, module_path, req):
+        # Add the req in the correct module
+        submodule = self
+        for module in module_path.split("/"):
+            submodule = submodule.modules[module]
+
+        name = submodule.add_req(req)
+        # Remove project prefix
+        return '_'.join(name.split('_')[1:])
 
     def add_req(self, req, position=-1):
         if req['Req-Id'] == "":
@@ -201,7 +210,7 @@ class requirement_module:
         # Write requirement updates
         for id, req_name in zip(bare_ids, self.ordered_req_names):
             # pop fields we don't want to store in the files
-            if ['non_stored_fields'] in self.reqs.nodes[req_name].keys():
+            if 'non_stored_fields' in self.reqs.nodes[req_name].keys():
                 self.reqs.nodes[req_name].pop('non_stored_fields')
 
             with open(self.module_path + '/' + id + '.yaml', 'w') as req_file:

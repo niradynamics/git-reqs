@@ -6,18 +6,7 @@ from git_reqs.requirementmodule import requirement_module, init_module
 from git_reqs import importtools
 from git_reqs import exporttools
 
-
-def init(args):
-    if args.upgrade:
-        req_module = requirement_module(args.parent_path + '/' + args.module)
-        req_module.upgrade_module()
-    else:
-        assert args.module_prefix, "Module prefix is required"
-        init_module(
-            args.parent_path, args.module, args.module_prefix, args.req_numbering_format)
-
-
-def import_reqs(args):
+def get_module(args):
     project = requirement_module(args.project_root)
     if args.module:
         req_module = project.modules[args.module]
@@ -30,6 +19,21 @@ def import_reqs(args):
         file = args.file
     else:
         file = req_module.module_path + "/" + req_module.module_prefix + '.' + args.format
+
+    return project, req_module, module_path, file
+
+def init(args):
+    if args.upgrade:
+        req_module = requirement_module(args.parent_path + '/' + args.module)
+        req_module.upgrade_module()
+    else:
+        assert args.module_prefix, "Module prefix is required"
+        init_module(
+            args.parent_path, args.module, args.module_prefix, args.req_numbering_format)
+
+
+def import_reqs(args):
+    project, req_module, module_path, file = get_module(args)
 
     if args.format == 'junit':
         importtools.add_test_results(module_path, file)
@@ -50,16 +54,7 @@ def import_reqs(args):
 
 
 def export_reqs(args):
-    project = requirement_module(args.project_root)
-    if args.module:
-        req_module = project.modules[args.module]
-    else:
-        req_module = project
-
-    if args.file:
-        file = args.file
-    else:
-        file = req_module.module_path + "/" + req_module.module_prefix + '.' + args.format
+    project, req_module, module_path, file = get_module(args)
 
     if args.format == 'xls':
         exporttools.convert_to_xls(req_module, file)
