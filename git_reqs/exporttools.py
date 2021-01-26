@@ -234,19 +234,25 @@ def draw_bokeh(reqmodule, req=None):
         for moduleName, module in reqmodule.modules.items():
             moduleOnly = nx.subgraph(G, module.ordered_req_names)
             roots = [v for v, d in moduleOnly.in_degree() if d == 0]
-            G.add_node(moduleName)
+            G.add_node(moduleName, non_stored_fields={'color': 'gray', 'link_status_updated': True})
             # Put the spec name node a bit lower to make the graph nicer
             special_pos[moduleName] = (0, -10)
             for root in roots:
                 G.add_edge(moduleName, root)
 
     fields = [("Req-Id", "@index")]
+    drawG = G.copy()
     posG = G.copy()
-    for node_data in posG.nodes.values():
+    for node, node_data in posG.nodes.items():
         for key in list(node_data.keys()):
             # Get all fields from all nodes to generate the tooltip
-            if not "Req-Id" in key:
+            if not "Req-Id" in key and not isinstance(node_data[key], dict):
                 fields.append(("\"" + key + "\"" , "\"@" + key + "\""))
+            elif isinstance(node_data[key], dict):
+                for sub_key in node_data[key].keys():
+                    drawG.nodes[node][sub_key] = str(node_data[key][sub_key])
+                    fields.append(("\"" + sub_key + "\"" , "\"@" + sub_key + "\""))
+
             # Pop all all but description and color when generating the position
             if key not in ['Description', 'color']:
                 node_data.pop(key)
@@ -270,7 +276,7 @@ def draw_bokeh(reqmodule, req=None):
 
     plot.add_tools(node_hover_tool, BoxZoomTool(), ResetTool())
 
-    graph_renderer = from_networkx(G, nx.spring_layout, pos=pos, k=3, center=(0, 0))
+    graph_renderer = from_networkx(drawG, nx.spring_layout, pos=pos, k=3, center=(0, 0))
     graph_renderer.node_renderer.data_source.data['colors'] = colors
     graph_renderer.layout_provider = StaticLayoutProvider(graph_layout=pos)
     graph_renderer.node_renderer.glyph = Circle(size=50, fill_color='colors')
@@ -289,7 +295,7 @@ def draw_bokeh(reqmodule, req=None):
 
 
 
-    node_labels = list(G.nodes.keys())
+    node_labels = list(drawG.nodes.keys())
     source = ColumnDataSource({'x': x, 'y': y,
                                'Req-Id': [node_labels[i] for i in range(len(x))]})
     labels = LabelSet(x='x', y='y', text='Req-Id', source=source)

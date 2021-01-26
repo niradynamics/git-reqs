@@ -64,7 +64,8 @@ class requirement_module:
                 for test_file in test_result_files:
                     self.import_test_results(test_file)
         if root_module:
-            self.update_link_status()
+            for req in self.reqs:
+                self.update_link_status(req)
 
     def read_reqs(self):
         with open(self.module_path + '/reqs.yaml', 'r') as req_list_file:
@@ -107,6 +108,10 @@ class requirement_module:
                             else:
                                 self.reqs.add_edge(
                                     req_name, linked_req, type=link_type)
+                            self.reqs.nodes[linked_req]['non_stored_fields'] = {}
+                            self.reqs.nodes[linked_req]['non_stored_fields']['Internal'] = False
+                            self.reqs.nodes[linked_req]['non_stored_fields']['color'] = 'gray'
+                            self.reqs.nodes[linked_req]['non_stored_fields']['link_status_updated'] = False
 
                 if not field in fields:
                     fields.append(field)
@@ -117,14 +122,23 @@ class requirement_module:
             self.reqs.nodes[req_name]['non_stored_fields'] = {}
             self.reqs.nodes[req_name]['non_stored_fields']['Internal'] = True
             self.reqs.nodes[req_name]['non_stored_fields']['color'] = 'black'
+            self.reqs.nodes[req_name]['non_stored_fields']['link_status_updated'] = False
             if not req_name in ordered_req_names:
                 ordered_req_names.append(req_name)
 
         return fields, ordered_req_names
 
-    def update_link_status(self):
-        for req in self.reqs:
+    def update_link_status(self, req, subgraph = None):
+        if not self.reqs.nodes[req]['non_stored_fields']['link_status_updated']:
+            # Recurse down in the tree
+            if subgraph is None:
+                subgraph = self.reqs
+            subgraph, _, descendants = self.get_related_reqs(req, subgraph)
+            for descendant in descendants:
+                self.update_link_status(descendant, subgraph)
+
             # Check all outgoing links
+            descendants_status = {}
             for descendant_link in self.reqs.out_edges(req):
                 edge_data = self.reqs.get_edge_data(descendant_link[0], descendant_link[1])
                 if 'partly_' in edge_data['type']:
@@ -134,9 +148,26 @@ class requirement_module:
                 else:
                     link_type = edge_data['type'] + '_link_status'
                     fulfillment = 1
+
                 if not link_type in self.reqs.nodes[req]['non_stored_fields'].keys():
                     self.reqs.nodes[req]['non_stored_fields'][link_type] = 0
                 self.reqs.nodes[req]['non_stored_fields'][link_type] += fulfillment
+
+                # Store the childrens status, so it can be propagated upwards
+                if not link_type in descendants_status.keys():
+                    descendants_status[link_type] = []
+
+                if link_type in self.reqs.nodes[descendant_link[1]]['non_stored_fields']:
+                    descendants_status[link_type].append(self.reqs.nodes[descendant_link[1]]['non_stored_fields'][link_type])
+
+            # If the sub requirment is not fully fulfilled for a certain link type, inherit the min fulfillment.
+            for link_type in descendants_status.keys():
+                if len(descendants_status[link_type]) > 0:
+                    desc_fullf = sum([f/len(descendants_status[link_type]) for f in descendants_status[link_type]])
+                    self.reqs.nodes[req]['non_stored_fields'][link_type] = min(self.reqs.nodes[req]['non_stored_fields'][link_type], desc_fullf)
+
+            self.reqs.nodes[req]['non_stored_fields']['link_status_updated'] = True
+
 	
 	# Propagates the reference of the full project graph to all modules
     # This is so that changes can be done on any level, and all requirements shall only exist once.
@@ -159,6 +190,7 @@ class requirement_module:
 
     def clear_ordered_req_list(self):
         self.ordered_req_names = []
+
     def add_req_with_path(self, module_path, req):
         # Add the req in the correct module
         submodule = self
@@ -277,11 +309,11 @@ class requirement_module:
                     linktype = match.groups()[1]
                     # Ok for nx to add node that already exists
                     self.reqs.add_node(testname + '_result', result=result,
-                                       color=color, Type='Test-Result', Description=case.name)
+                                       non_stored_fields={'color': color, 'link_status_updated': True}, Type='Test-Result', Description=case.name)
                     self.reqs.add_edge(testname, testname + '_result', type=linktype)
                 elif connect_with_naming_convention:
                     self.reqs.add_node(case.name + '_result', result=result,
-                                   non_stored_fields={'color': color}, Type='Test-Result')
+                                   non_stored_fields={'color': color, 'link_status_updated': True}, Type='Test-Result')
 
                     for req_name, req_content in self.reqs.nodes.items():
                         if 'Description' in req_content.keys() and case.name in req_content['Description']:
