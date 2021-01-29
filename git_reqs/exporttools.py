@@ -2,10 +2,13 @@ import os.path
 import xlwt
 import networkx as nx
 from networkx.drawing.nx_pydot import to_pydot, graphviz_layout
-from bokeh.io import output_file, show
-from bokeh.models import (BoxSelectTool, BoxZoomTool, ResetTool, Ellipse, Circle, Text, EdgesAndLinkedNodes, HoverTool,
-                          MultiLine, NodesAndLinkedEdges, Plot, Range1d, TapTool, StaticLayoutProvider)
-from bokeh.palettes import Spectral4, RdGy6
+
+from bokeh.models import (BoxZoomTool, ResetTool, Circle, HoverTool,
+                          MultiLine, StaticLayoutProvider, ColumnDataSource)
+from bokeh.models.widgets import DataTable, DateFormatter, TableColumn, Div
+from bokeh.io import output_file, show, curdoc
+from bokeh.layouts import column
+from bokeh.palettes import Spectral4, RdGy6, Pastel2
 from bokeh.plotting import figure, from_networkx
 from bokeh.models import ColumnDataSource, LabelSet
 import math
@@ -89,104 +92,105 @@ def convert_to_markdown(reqmodule, file, hugo=False):
     md_file.close()
 
 
-def create_report(project, reqmodule):
-    md_file = open(reqmodule.module_path + "/" + reqmodule.module_prefix + "_report.md", 'w')
+def create_report(project, reqmodule_name):
 
-    for req in project.modules[reqmodule].ordered_req_names:
+    graphs = column()
+    if reqmodule_name:
+        reqmodule = project.modules[reqmodule_name]
+    else:
+        reqmodule = project
 
-        md_file.write(project.reqs.nodes[req]['Description'] +
-                      " [" + req + "]\n\n")
+    output_file(reqmodule.module_path + "/" + reqmodule.module_prefix + "_relations_report.html")
 
-        subgraph, ancestors, descendants = project.get_related_reqs(req)
-        roots = [v for v, d in subgraph.in_degree() if d == 0]
-        leaves = [v for v, d in subgraph.out_degree() if d == 0]
+    for req in reqmodule.ordered_req_names:
+        tree = get_tree_graph(reqmodule, req)
+        subgraph, _, _ = reqmodule.get_related_reqs(req, reqmodule.reqs)
+        table = get_table_of_subgraph_reqs(subgraph, reqmodule.fields)
+        graphs.children.append(tree)
+        graphs.children.append(table)
 
-        for node in subgraph.nodes.values():
-            if 'color' not in node['non_stored_fields'].keys() or not node['color']:
-                node['non_stored_fields']['color'] = 'gray'
-            for key in list(node.keys()):
-                node['color'] = node['non_stored_fields']['color']
-                if key not in ['Description', 'color']:
-                    node.pop(key)
-
-
-        if len(subgraph) > 1:
-            pos = nx.spiral_layout(subgraph)
-            nx.draw(subgraph, pos=pos)
-
-            dot = to_pydot(subgraph)
-            desc_nodes = [req]
-            if len(ancestors) < 3:
-                desc_nodes.extend(ancestors)
-            if len(descendants) < 3:
-                desc_nodes.extend(descendants)
-
-            for node_name in desc_nodes:
-                print(node_name)
-                node = dot.get_node(node_name)[0]
-                if 'Description' in node.obj_dict['attributes'].keys():
-                    Desc = node.obj_dict['attributes']['Description']
-                    Desc = Desc[:100] + '...' if len(Desc) > 100 else Desc 
-                    node.set_label(node_name + '\n' + Desc)
-                
-            dot.get_node(req)[0].set_color('blue')
-
-            md_file.write('```{.graphviz caption="%s"}\n' % req)
-            md_file.write(dot.to_string())
-            md_file.write('```\n\n')
-
-    md_file.close()
-
-def draw_coverage_diagrams(reqmodule):
-    only_reqs_subgraph = reqmodule.get_reqs_with_attr(('Type', 'Requirement'))
-    reqs_test_testresult_subgraph = reqmodule.get_reqs_with_attr([('Type', 'Requirement'), ('Type', 'Testcase'), ('Type', 'Test-Result')])
-    total_reqs = len(only_reqs_subgraph.nodes)
-    tested_reqs = [n for n, r in only_reqs_subgraph.nodes.items()
-                   if 'non_stored_fields' in r.keys()
-                    and 'verifies_link_status' in r['non_stored_fields'].keys()
-                    and r['non_stored_fields']['verifies_link_status'] > 0]
-    full_tested_reqs = [n for n, r in only_reqs_subgraph.nodes.items()
-                   if 'non_stored_fields' in r.keys()
-                    and 'verifies_link_status' in r['non_stored_fields'].keys()
-                    and r['non_stored_fields']['verifies_link_status'] > 1]
-    untested_reqs = [n for n, r in only_reqs_subgraph.nodes.items()
-                   if n not in tested_reqs]
-
-    passed_reqs = 0
-    failed_reqs = 0
+    show(graphs)
 
 
-    for req in tested_reqs:
-        subgraph, ancestors, descendants = reqmodule.get_related_reqs(req, reqs_test_testresult_subgraph)
+def get_test_result(reqs, reqmodule, req_graph, passed_reqs, failed_reqs, fully_tested_reqs):
+    for req in reqs['Req-Ids']:
+        subgraph, ancestors, descendants = reqmodule.get_related_reqs(req, req_graph)
         leaves = [v for v, d in subgraph.out_degree() if d == 0]
         passed = 0
         failed = 0
+
         for leaf in leaves:
             if 'Type' in subgraph.nodes[leaf].keys() and subgraph.nodes[leaf]['Type'] == 'Test-Result':
                 if subgraph.nodes[leaf]['result'] == 'Passed':
                     passed += 1
                 else:
                     failed += 1
-        if passed == len(leaves) and req in full_tested_reqs:
-            passed_reqs += 1
+        if passed == len(leaves) and fully_tested_reqs:
+            passed_reqs['Req-Ids'].append(req)
+            passed_reqs['leaves'].append(leaves)
+            passed_reqs['result'].append('passed')
+            passed_reqs['fully-tested'].append(True)
+            passed_reqs['Description'].append(reqmodule.reqs.nodes[req]['Description'])
+            reqs['Req-Ids'].remove(req)
+
         elif failed > 0:
-            failed_reqs += 1
+            failed_reqs['Req-Ids'].append(req)
+            failed_reqs['leaves'].append(leaves)
+            failed_reqs['result'].append('failed')
+            failed_reqs['fully-tested'].append(fully_tested_reqs)
+            failed_reqs['Description'].append(reqmodule.reqs.nodes[req]['Description'])
+            reqs['Req-Ids'].remove(req)
+        else:
+            reqs['leaves'].append(leaves)
+            reqs['result'].append('failed' if failed > 0 else ('passed' if passed > 0 else 'untested'))
+            reqs['fully-tested'].append(fully_tested_reqs)
+            reqs['Description'].append(reqmodule.reqs.nodes[req]['Description'])
+
+def draw_coverage_diagrams(reqmodule):
+    only_reqs_subgraph = reqmodule.get_reqs_with_attr(('Type', 'Requirement'))
+    reqs_test_testresult_subgraph = reqmodule.get_reqs_with_attr([('Type', 'Requirement'), ('Type', 'Testcase'), ('Type', 'Test-Result')])
+    total_reqs = len(only_reqs_subgraph.nodes)
+
+    req_group_fields = ['Req-Ids', 'result', 'leaves', 'fully-tested', 'Description']
+
+    passed_reqs = {k: [] for k in req_group_fields}
+    failed_reqs = {k: [] for k in req_group_fields}
+    partly_tested_reqs = {k: [] for k in req_group_fields}
+    fully_tested_reqs = {k: [] for k in req_group_fields}
+    untested_reqs = {k: [] for k in req_group_fields}
+
+    partly_tested_reqs['Req-Ids'] = [n for n, r in only_reqs_subgraph.nodes.items()
+                   if 'non_stored_fields' in r.keys()
+                    and 'verifies_link_status' in r['non_stored_fields'].keys()
+                    and 0 < r['non_stored_fields']['verifies_link_status'] < 1]
+    fully_tested_reqs['Req-Ids'] = [n for n, r in only_reqs_subgraph.nodes.items()
+                   if 'non_stored_fields' in r.keys()
+                    and 'verifies_link_status' in r['non_stored_fields'].keys()
+                    and r['non_stored_fields']['verifies_link_status'] >= 1]
+    untested_reqs['Req-Ids'] = [n for n, r in only_reqs_subgraph.nodes.items()
+                   if n not in partly_tested_reqs['Req-Ids'] and n not in fully_tested_reqs['Req-Ids']]
+
+    get_test_result(partly_tested_reqs, reqmodule, reqs_test_testresult_subgraph, passed_reqs, failed_reqs, False)
+    get_test_result(fully_tested_reqs, reqmodule, reqs_test_testresult_subgraph, passed_reqs, failed_reqs, True)
+    get_test_result(untested_reqs, reqmodule, reqs_test_testresult_subgraph, passed_reqs, failed_reqs, False)
 
     # file to save the model
     output_file(reqmodule.module_path + "/" + reqmodule.module_prefix + "_TestCoverage.html")
 
     # instantiating the figure object
     graph = figure(title="Test Coverage")
+    graph.title.align = "center"
+    graph.title.text_font_size = "25px"
 
     # name of the sectors
     sectors = ["Passed", "Failed", "Linked to full test coverage", "Partly tested", "Untested"]
 
     # % tage weightage of the sectors
-    parts = [passed_reqs/total_reqs,
-             failed_reqs/total_reqs,
-             len(full_tested_reqs)/total_reqs,
-             len(tested_reqs)/total_reqs,
-             len(untested_reqs)/total_reqs]
+    parts = [len(passed_reqs['Req-Ids'])/total_reqs,
+             len(failed_reqs['Req-Ids'])/total_reqs,
+             len(fully_tested_reqs['Req-Ids'])/total_reqs,
+             len(partly_tested_reqs['Req-Ids'])/total_reqs,
+             len(untested_reqs['Req-Ids'])/total_reqs]
 
     # converting into radians
     radians = [math.radians(part * 360) for part in parts]
@@ -219,11 +223,56 @@ def draw_coverage_diagrams(reqmodule):
                     color=color[i],
                     legend_label=sectors[i])
 
-        # displaying the graph
-    show(graph)
 
+    columns = [
+        TableColumn(field="Req-Ids", title="Req-Id"),
+        TableColumn(field="Description", title="Description"),
+        TableColumn(field="result", title="Test Result"),
+        TableColumn(field="leaves", title="Leaf nodes in traceability tree"),
+    ]
 
-def draw_bokeh(reqmodule, req=None):
+    source = ColumnDataSource(failed_reqs)
+    data_table1_div = Div(text="<b>Failed Requirements", style={'font-size': '200%', 'color': color[1]})
+    data_table1 = DataTable(source=source, columns=columns, autosize_mode='fit_columns', width=1600, height=len(failed_reqs['Req-Ids'])*35+35)
+
+    source = ColumnDataSource(untested_reqs)
+    data_table2_div = Div(text="<b>Untested Requirements", style={'font-size': '200%', 'color': color[4]})
+    data_table2 = DataTable(source=source, columns=columns, autosize_mode='fit_columns', width=1600, height=len(untested_reqs['Req-Ids'])*35+35)
+
+    source = ColumnDataSource(partly_tested_reqs)
+    data_table3_div = Div(text="<b>Partly tested Requirements", style={'font-size': '200%', 'color': color[3]})
+    data_table3 = DataTable(source=source, columns=columns, autosize_mode='fit_columns', width=1600, height=len(partly_tested_reqs['Req-Ids'])*35+35)
+
+    source = ColumnDataSource(fully_tested_reqs)
+    data_table4_div = Div(text="<b>Requirements fully linked to test</b>", style={'font-size': '200%', 'color': color[2]})
+    data_table4 = DataTable(source=source, columns=columns, autosize_mode='fit_columns', width=1600, height=len(fully_tested_reqs['Req-Ids'])*35+35)
+
+    source = ColumnDataSource(passed_reqs)
+    data_table5_div = Div(text="<b>Passed Requirements", style={'font-size': '200%', 'color': color[0]})
+    data_table5 = DataTable(source=source, columns=columns, autosize_mode='fit_columns', width=1600, height=len(passed_reqs['Req-Ids'])*35+35)
+
+    docs=(column(graph, data_table1_div, data_table1, data_table2_div, data_table2, data_table3_div, data_table3, data_table4_div, data_table4, data_table5_div, data_table5))
+
+    show(docs)
+
+def get_table_of_subgraph_reqs(subgraph, fields):
+    table = {k: [] for k in fields}
+    columns = []
+    for c in fields:
+        for req in subgraph:
+            if c in subgraph.nodes[req].keys():
+                table[c].append(subgraph.nodes[req][c])
+            else:
+                table[c].append('')
+
+        columns.append(TableColumn(field=c, title=c))
+
+    source = ColumnDataSource(table)
+
+    return DataTable(source=source, columns=columns, autosize_mode='fit_columns', width=1600,
+                            height=len(table['Req-Id']) * 35 + 35)
+
+def get_tree_graph(reqmodule, req):
     color_mapper = {'black': RdGy6[1], 'gray': RdGy6[2], 'red': Spectral4[3], 'green': Spectral4[1]}
     colors = []
     special_pos = {}
@@ -247,32 +296,40 @@ def draw_bokeh(reqmodule, req=None):
         for key in list(node_data.keys()):
             # Get all fields from all nodes to generate the tooltip
             if not "Req-Id" in key and not isinstance(node_data[key], dict):
-                fields.append(("\"" + key + "\"" , "\"@" + key + "\""))
+                fields.append(("\"" + key + "\"", "\"@" + key + "\""))
             elif isinstance(node_data[key], dict):
                 for sub_key in node_data[key].keys():
                     drawG.nodes[node][sub_key] = str(node_data[key][sub_key])
-                    fields.append(("\"" + sub_key + "\"" , "\"@" + sub_key + "\""))
+                    fields.append(("\"" + sub_key + "\"", "\"@" + sub_key + "\""))
 
             # Pop all all but description and color when generating the position
             if key not in ['Description', 'color']:
                 node_data.pop(key)
 
         # Get color info for the nodes
-        if 'color' in node_data.keys() and node_data['color'] in color_mapper.keys():
+        if req and node is req:
+            colors.append(Spectral4[2])
+        elif 'color' in node_data.keys() and node_data['color'] in color_mapper.keys():
             colors.append(color_mapper[node_data['color']])
         else:
             colors.append(color_mapper['gray'])
     # Get the unique list
     fields = list(set(fields))
     print(fields)
-    node_hover_tool = HoverTool(tooltips=fields)
+
 
     pos = graphviz_layout(posG, prog='dot')
     for spn, spp in special_pos.items():
-        pos[spn] = (pos[spn][0]+spp[0], pos[spn][1]+spp[1])
+        pos[spn] = (pos[spn][0] + spp[0], pos[spn][1] + spp[1])
     x, y = zip(*pos.values())
-    plot = figure(title="Requirement connection visualization", x_range=(min(x)-10, max(x)+10), y_range=(min(y)-10, max(y)+10),
-                  tools="tap", width=1700, height=800)
+
+
+    node_hover_tool = HoverTool(tooltips=fields)
+    w = int(max(x)-min(x)) + 200
+    h = int(max(y)-min(y)) + 200
+    plot = figure(title="Requirement connection visualization", x_range=(min(x) - 50, max(x) + 50),
+                  y_range=(min(y) - 50, max(y) + 50),
+                  tools="tap", width=w, height=h)
 
     plot.add_tools(node_hover_tool, BoxZoomTool(), ResetTool())
 
@@ -280,7 +337,6 @@ def draw_bokeh(reqmodule, req=None):
     graph_renderer.node_renderer.data_source.data['colors'] = colors
     graph_renderer.layout_provider = StaticLayoutProvider(graph_layout=pos)
     graph_renderer.node_renderer.glyph = Circle(size=50, fill_color='colors')
-    #graph_renderer.node_renderer.glyph = Text(text=["@index"])
     graph_renderer.node_renderer.selection_glyph = Circle(size=50, fill_color=Spectral4[2])
     graph_renderer.node_renderer.hover_glyph = Circle(size=50, fill_color=Spectral4[1])
 
@@ -288,12 +344,7 @@ def draw_bokeh(reqmodule, req=None):
     graph_renderer.edge_renderer.selection_glyph = MultiLine(line_color=Spectral4[2], line_width=5)
     graph_renderer.edge_renderer.hover_glyph = MultiLine(line_color=Spectral4[1], line_width=5)
 
-    #graph_renderer.selection_policy = NodesAndLinkedEdges()
-    #graph_renderer.inspection_policy = EdgesAndLinkedNodes()
-
     plot.renderers.append(graph_renderer)
-
-
 
     node_labels = list(drawG.nodes.keys())
     source = ColumnDataSource({'x': x, 'y': y,
@@ -302,5 +353,9 @@ def draw_bokeh(reqmodule, req=None):
 
     plot.renderers.append(labels)
 
+    return plot
+
+def draw_bokeh(reqmodule, req=None):
+    plot = get_tree_graph(reqmodule, req)
     output_file(reqmodule.module_path + "/" + reqmodule.module_prefix + "_networkx_graph.html")
     show(plot)

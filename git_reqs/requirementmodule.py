@@ -10,7 +10,7 @@ FORMAT_VERSION = 0.3
 import re
 
 class requirement_module:
-    def __init__(self, module_path, parent_prefix="", root_module=True):
+    def __init__(self, module_path="", parent_prefix="", root_module=True):
         self.parent_prefix = parent_prefix
         self.module_path = module_path
         self.git_repo = git.Repo(self.module_path, search_parent_directories=True)
@@ -24,19 +24,32 @@ class requirement_module:
 
 
         if self.config['req_version'] < 0.2:
-            with open(module_path + '/module-prefix.yaml', 'r') as proj_pref_file:
-                self.config['module_prefix'] = yaml.safe_load(proj_pref_file)
-            with open(module_path + '/modules.yaml', 'r') as modules_file:
-                self.config['modules'] = yaml.safe_load(modules_file)
+            if os.path.exists(module_path + '/config.yaml'):
+                with open(module_path + '/module-prefix.yaml', 'r') as proj_pref_file:
+                    self.config['module_prefix'] = yaml.safe_load(proj_pref_file)
+            else:
+                self.config['module_prefix'] = ""
+
+            if os.path.exists(module_path + '/modules.yaml'):
+                with open(module_path + '/modules.yaml', 'r') as modules_file:
+                    self.config['modules'] = yaml.safe_load(modules_file)
+            else:
+                self.config['modules'] = []
+
             self.config['req_number_format'] = 'numbers'
             self.used_ids = []
 
-        else:
+        elif os.path.exists(module_path + '/used-ids.yaml'):
             with open(module_path + '/used-ids.yaml', 'r') as used_ids_file:
                 self.used_ids = yaml.safe_load(used_ids_file)
+        else:
+            self.used_ids = []
 
-        with open(module_path + '/next-id.yaml', 'r') as next_id_file:
-            self.next_id = yaml.safe_load(next_id_file)
+        if os.path.exists(module_path + '/next-id.yaml'):
+            with open(module_path + '/next-id.yaml', 'r') as next_id_file:
+                self.next_id = yaml.safe_load(next_id_file)
+        else:
+            self.next_id = 0
 
         if parent_prefix != "":
             self.module_prefix = parent_prefix + \
@@ -68,8 +81,11 @@ class requirement_module:
                 self.update_link_status(req)
 
     def read_reqs(self):
-        with open(self.module_path + '/reqs.yaml', 'r') as req_list_file:
-            req_list = yaml.safe_load(req_list_file)
+        if os.path.exists(self.module_path + '/reqs.yaml'):
+            with open(self.module_path + '/reqs.yaml', 'r') as req_list_file:
+                req_list = yaml.safe_load(req_list_file)
+        else:
+            req_list = []
 
         fields = ['Req-Id', 'Type', 'Description',
                   'downward_links', 'upward_links']
@@ -128,19 +144,31 @@ class requirement_module:
 
         return fields, ordered_req_names
 
-    def update_link_status(self, req, subgraph = None):
+    def update_link_status(self, req, subgraph=None):
         if not self.reqs.nodes[req]['non_stored_fields']['link_status_updated']:
-            # Recurse down in the tree
             if subgraph is None:
                 subgraph = self.reqs
+
+            # Recurse down in the tree
             subgraph, _, descendants = self.get_related_reqs(req, subgraph)
+            descendants_status = {}
             for descendant in descendants:
                 self.update_link_status(descendant, subgraph)
 
+                # Store the childrens status, so it can be propagated upwards
+                desc_info = self.reqs.nodes[descendant]['non_stored_fields']
+                desc_link_types = [key for key in desc_info if '_link_status' in key]
+
+                for desc_link_type in desc_link_types:
+                    if not desc_link_type in descendants_status.keys():
+                        descendants_status[desc_link_type] = []
+
+                    descendants_status[desc_link_type].append(desc_info[desc_link_type])
+
             # Check all outgoing links
-            descendants_status = {}
             for descendant_link in self.reqs.out_edges(req):
                 edge_data = self.reqs.get_edge_data(descendant_link[0], descendant_link[1])
+                # Calculate the quota for partly links
                 if 'partly_' in edge_data['type']:
                     link_type = edge_data['type'][len('partly_'):-5] + '_link_status'
                     quota = [float(n) for n in edge_data['type'][-4:-1].split('/')]
@@ -149,22 +177,19 @@ class requirement_module:
                     link_type = edge_data['type'] + '_link_status'
                     fulfillment = 1
 
+                # Add link status for current req
                 if not link_type in self.reqs.nodes[req]['non_stored_fields'].keys():
                     self.reqs.nodes[req]['non_stored_fields'][link_type] = 0
                 self.reqs.nodes[req]['non_stored_fields'][link_type] += fulfillment
 
-                # Store the childrens status, so it can be propagated upwards
-                if not link_type in descendants_status.keys():
-                    descendants_status[link_type] = []
-
-                if link_type in self.reqs.nodes[descendant_link[1]]['non_stored_fields']:
-                    descendants_status[link_type].append(self.reqs.nodes[descendant_link[1]]['non_stored_fields'][link_type])
-
-            # If the sub requirment is not fully fulfilled for a certain link type, inherit the min fulfillment.
+            # If the sub requirement is not fully fulfilled for a certain link type, inherit the min fulfillment.
             for link_type in descendants_status.keys():
                 if len(descendants_status[link_type]) > 0:
-                    desc_fullf = sum([f/len(descendants_status[link_type]) for f in descendants_status[link_type]])
-                    self.reqs.nodes[req]['non_stored_fields'][link_type] = min(self.reqs.nodes[req]['non_stored_fields'][link_type], desc_fullf)
+                    sub_fullf = sum([f/len(descendants_status[link_type]) for f in descendants_status[link_type]])
+                    if link_type in self.reqs.nodes[req]['non_stored_fields'].keys():
+                        self.reqs.nodes[req]['non_stored_fields'][link_type] = min(self.reqs.nodes[req]['non_stored_fields'][link_type], sub_fullf)
+                    else:
+                        self.reqs.nodes[req]['non_stored_fields'][link_type] = sub_fullf
 
             self.reqs.nodes[req]['non_stored_fields']['link_status_updated'] = True
 
@@ -225,14 +250,20 @@ class requirement_module:
         if id not in self.used_ids:
             self.used_ids.append(id)
 
+        self.reqs.nodes[req['Req-Id']]['non_stored_fields'] = {}
+        self.reqs.nodes[req['Req-Id']]['non_stored_fields']['Internal'] = True
+        self.reqs.nodes[req['Req-Id']]['non_stored_fields']['color'] = 'black'
+        self.reqs.nodes[req['Req-Id']]['non_stored_fields']['link_status_updated'] = False
 
         for field in list(req.keys()):
-            self.reqs.nodes[self.module_prefix + '_' + id][field] = str(req[field]).strip()
-        self.reqs.nodes[self.module_prefix + '_' + id]['Req-Id'] = id
+            self.reqs.nodes[req['Req-Id']][field] = str(req[field]).strip()
+        self.reqs.nodes[req['Req-Id']]['Req-Id'] = id
         if position >= 0:
             self.ordered_req_names.insert(position, req['Req-Id'])
         else:
             self.ordered_req_names.append(req['Req-Id'])
+
+
 
         return req['Req-Id']
 
