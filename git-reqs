@@ -68,11 +68,11 @@ def create_report(args):
     project = requirement_module(args.project_root)
 
     if args.type == 'relations':
-        exporttools.create_report(project, args.module)
+        exporttools.create_report(project, args.module, args.dont_show_output)
     elif args.type == 'bokeh':
         exporttools.draw_bokeh(project, args.req)
     elif args.type == 'test_coverage':
-        exporttools.draw_coverage_diagrams(project)
+        exporttools.draw_coverage_diagrams(project, args.dont_show_output)
     else:
         assert False, "Invalid format. See available formats with git-reqs report --help"
 
@@ -116,6 +116,8 @@ if __name__ == "__main__":
     report_parser.add_argument(
         "--req", help="Bokeh plot only for a certain req and its relations", default=None)
     report_parser.set_defaults(func=create_report)
+    report_parser.add_argument(
+        "--dont_show_output", action='store_true', help="Just save the resulting file, dont show the output (default true)")
 
     init_parser = subparsers.add_parser(
         "init", help="Init new requirement module")

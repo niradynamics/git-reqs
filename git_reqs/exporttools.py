@@ -6,7 +6,7 @@ from networkx.drawing.nx_pydot import to_pydot, graphviz_layout
 from bokeh.models import (BoxZoomTool, ResetTool, Circle, HoverTool,
                           MultiLine, StaticLayoutProvider, ColumnDataSource)
 from bokeh.models.widgets import DataTable, DateFormatter, TableColumn, Div
-from bokeh.io import output_file, show, curdoc
+from bokeh.io import output_file, show, save, curdoc
 from bokeh.layouts import column
 from bokeh.palettes import Spectral4, RdGy6, Pastel2
 from bokeh.plotting import figure, from_networkx
@@ -92,7 +92,7 @@ def convert_to_markdown(reqmodule, file, hugo=False):
     md_file.close()
 
 
-def create_report(project, reqmodule_name):
+def create_report(project, reqmodule_name, dont_show_output=False):
 
     graphs = column()
     if reqmodule_name:
@@ -108,16 +108,23 @@ def create_report(project, reqmodule_name):
         table = get_table_of_subgraph_reqs(subgraph, reqmodule.fields)
         graphs.children.append(tree)
         graphs.children.append(table)
+    if dont_show_output:
+        save(graphs)
+    else:
+        show(graphs)
 
-    show(graphs)
-
+def get_empty_struct():
+    req_group_fields = ['Req-Ids', 'result', 'leaves', 'fully-tested', 'Description']
+    return {k: [] for k in req_group_fields}
 
 def get_test_result(reqs, reqmodule, req_graph, passed_reqs, failed_reqs, fully_tested_reqs):
+    result = get_empty_struct()
     for req in reqs['Req-Ids']:
         subgraph, ancestors, descendants = reqmodule.get_related_reqs(req, req_graph)
         leaves = [v for v, d in subgraph.out_degree() if d == 0]
         passed = 0
         failed = 0
+
 
         for leaf in leaves:
             if 'Type' in subgraph.nodes[leaf].keys() and subgraph.nodes[leaf]['Type'] == 'Test-Result':
@@ -131,7 +138,6 @@ def get_test_result(reqs, reqmodule, req_graph, passed_reqs, failed_reqs, fully_
             passed_reqs['result'].append('passed')
             passed_reqs['fully-tested'].append(True)
             passed_reqs['Description'].append(reqmodule.reqs.nodes[req]['Description'])
-            reqs['Req-Ids'].remove(req)
 
         elif failed > 0:
             failed_reqs['Req-Ids'].append(req)
@@ -139,25 +145,27 @@ def get_test_result(reqs, reqmodule, req_graph, passed_reqs, failed_reqs, fully_
             failed_reqs['result'].append('failed')
             failed_reqs['fully-tested'].append(fully_tested_reqs)
             failed_reqs['Description'].append(reqmodule.reqs.nodes[req]['Description'])
-            reqs['Req-Ids'].remove(req)
         else:
-            reqs['leaves'].append(leaves)
-            reqs['result'].append('failed' if failed > 0 else ('passed' if passed > 0 else 'untested'))
-            reqs['fully-tested'].append(fully_tested_reqs)
-            reqs['Description'].append(reqmodule.reqs.nodes[req]['Description'])
+            result['Req-Ids'].append(req)
+            result['leaves'].append(leaves)
+            result['result'].append('failed' if failed > 0 else ('partly tested' if passed > 0 else 'untested'))
+            result['fully-tested'].append(fully_tested_reqs)
+            result['Description'].append(reqmodule.reqs.nodes[req]['Description'])
 
-def draw_coverage_diagrams(reqmodule):
+    return result
+
+def draw_coverage_diagrams(reqmodule, dont_show_output=False):
     only_reqs_subgraph = reqmodule.get_reqs_with_attr(('Type', 'Requirement'))
     reqs_test_testresult_subgraph = reqmodule.get_reqs_with_attr([('Type', 'Requirement'), ('Type', 'Testcase'), ('Type', 'Test-Result')])
     total_reqs = len(only_reqs_subgraph.nodes)
 
     req_group_fields = ['Req-Ids', 'result', 'leaves', 'fully-tested', 'Description']
 
-    passed_reqs = {k: [] for k in req_group_fields}
-    failed_reqs = {k: [] for k in req_group_fields}
-    partly_tested_reqs = {k: [] for k in req_group_fields}
-    fully_tested_reqs = {k: [] for k in req_group_fields}
-    untested_reqs = {k: [] for k in req_group_fields}
+    passed_reqs = get_empty_struct()
+    failed_reqs = get_empty_struct()
+    partly_tested_reqs = get_empty_struct()
+    fully_tested_reqs = get_empty_struct()
+    untested_reqs = get_empty_struct()
 
     partly_tested_reqs['Req-Ids'] = [n for n, r in only_reqs_subgraph.nodes.items()
                    if 'non_stored_fields' in r.keys()
@@ -170,9 +178,9 @@ def draw_coverage_diagrams(reqmodule):
     untested_reqs['Req-Ids'] = [n for n, r in only_reqs_subgraph.nodes.items()
                    if n not in partly_tested_reqs['Req-Ids'] and n not in fully_tested_reqs['Req-Ids']]
 
-    get_test_result(partly_tested_reqs, reqmodule, reqs_test_testresult_subgraph, passed_reqs, failed_reqs, False)
-    get_test_result(fully_tested_reqs, reqmodule, reqs_test_testresult_subgraph, passed_reqs, failed_reqs, True)
-    get_test_result(untested_reqs, reqmodule, reqs_test_testresult_subgraph, passed_reqs, failed_reqs, False)
+    partly_tested_reqs = get_test_result(partly_tested_reqs, reqmodule, reqs_test_testresult_subgraph, passed_reqs, failed_reqs, False)
+    fully_tested_reqs = get_test_result(fully_tested_reqs, reqmodule, reqs_test_testresult_subgraph, passed_reqs, failed_reqs, True)
+    untested_reqs = get_test_result(untested_reqs, reqmodule, reqs_test_testresult_subgraph, passed_reqs, failed_reqs, False)
 
     # file to save the model
     output_file(reqmodule.module_path + "/" + reqmodule.module_prefix + "_TestCoverage.html")
@@ -251,9 +259,12 @@ def draw_coverage_diagrams(reqmodule):
     data_table5_div = Div(text="<b>Passed Requirements", style={'font-size': '200%', 'color': color[0]})
     data_table5 = DataTable(source=source, columns=columns, autosize_mode='fit_columns', width=1600, height=len(passed_reqs['Req-Ids'])*35+35)
 
-    docs=(column(graph, data_table1_div, data_table1, data_table2_div, data_table2, data_table3_div, data_table3, data_table4_div, data_table4, data_table5_div, data_table5))
+    graphs=(column(graph, data_table1_div, data_table1, data_table2_div, data_table2, data_table3_div, data_table3, data_table4_div, data_table4, data_table5_div, data_table5))
 
-    show(docs)
+    if dont_show_output:
+        save(graphs)
+    else:
+        show(graphs)
 
 def get_table_of_subgraph_reqs(subgraph, fields):
     table = {k: [] for k in fields}
