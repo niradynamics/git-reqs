@@ -231,7 +231,7 @@ class requirement_module:
         return '_'.join(name.split('_')[1:])
 
     def add_req(self, req, position=-1):
-        if req['Req-Id'] == "":
+        if not req['Req-Id']:
             if self.config['req_number_format'] == 'time_hash':
                 hash = hashlib.sha1()
                 while True:
@@ -354,12 +354,12 @@ class requirement_module:
                     self.reqs.nodes[testname + '_result']['Req-Id'] = testname.split('_')[-1] + '_result'
                     self.reqs.add_edge(testname, testname + '_result', type='Test-Result')
                 elif connect_with_naming_convention:
-                    self.reqs.add_node(case.name + '_result', result=result,
+                    self.reqs.add_node(case.name, result=result,
                                    non_stored_fields={'color': color, 'link_status_updated': True}, Type='Test-Result')
 
                     for req_name, req_content in self.reqs.nodes.items():
                         if 'Description' in req_content.keys() and case.name in req_content['Description']:
-                            self.reqs.add_edge(req_name, case.name)
+                            self.reqs.add_edge(req_name, case.name, type='Test-Result')
 
     def get_related_reqs(self, req_name, subgraph=None):
         if subgraph:
@@ -378,8 +378,10 @@ class requirement_module:
             nodes.extend([n for n, d in self.reqs.nodes.items() if field[0] in d.keys() and d[field[0]] == field[1]])
         return self.reqs.subgraph(nodes)
 
-def init_module(parent_path, module_name, module_prefix, req_numbering='time_hash'):
+def init_module(parent_path, module_name, module_prefix, req_numbering='time_hash', root_module=False):
     module_path = parent_path + '/' + module_name
+    git_repo = git.Repo(parent_path, search_parent_directories=True)
+
     if not os.path.exists(module_path):
         os.mkdir(module_path)
     assert(not module_name == '')
@@ -395,18 +397,24 @@ def init_module(parent_path, module_name, module_prefix, req_numbering='time_has
     config['modules'] = []
     config['source_paths'] = []
     config['source_extensions'] = []
+    config['root_module'] = root_module
     next_id = 1
 
     with open(module_path + '/config.yaml', 'w') as config_file:
         yaml.dump(config, config_file)
+        git_repo.git.add(config_file.name)
     with open(module_path + '/next-id.yaml', 'w') as next_id_file:
         yaml.dump(next_id, next_id_file)
+        git_repo.git.add(next_id_file.name)
     with open(module_path + '/used-ids.yaml', 'w') as used_ids_file:
         yaml.dump([], used_ids_file)
+        git_repo.git.add(used_ids_file.name)
     with open(module_path + '/modules.yaml', 'w') as modules_file:
         yaml.dump([], modules_file)
+        git_repo.git.add(modules_file.name)
     with open(module_path + '/reqs.yaml', 'w') as reqs_file:
         yaml.dump([], reqs_file)
+        git_repo.git.add(reqs_file.name)
 
     if os.path.exists(module_path + '/../config.yaml'):
         with open(module_path + '/../config.yaml', 'r') as parent_config_file:

@@ -1,23 +1,39 @@
-import xlrd
+from openpyxl import load_workbook
 import os
 import yaml
 from pathlib import Path
 import re
 import networkx as nx
 
-def import_from_xls(reqmodule, req_xls):
-    wb = xlrd.open_workbook(req_xls)
-    sheet = wb.sheet_by_index(0)
+def import_from_xls(reqmodule, req_xls, wb=None):
+    if not wb:
+        wb = load_workbook(req_xls)
 
-    reqmodule.clear_ordered_req_list()
+    if reqmodule.module_prefix in wb.sheetnames:
+        sheet = wb[reqmodule.module_prefix]
+    else:
+        sheet = None
 
-    fields = [field for field in sheet.row_values(0)]
-    req = {}
-    for row in range(1, sheet.nrows):
-        for col, field in enumerate(fields):
-            if field != 'non_stored_fields':
-                req[field] = sheet.cell_value(row, col)
-        reqmodule.add_req(req)
+    if sheet:
+        print(reqmodule.module_prefix)
+        reqmodule.clear_ordered_req_list()
+
+        fields = [field.value for field in list(sheet.iter_rows(1, 1))[0]]
+        req = {}
+        for row in range(2, sheet.max_row+1):
+            for col, field in enumerate(fields):
+                # Don't consider columns with empty field name,
+                # empty fields
+                # nor the 'non_stored_fields' columns
+                if field and field != 'non_stored_fields':
+                    req[field] = sheet.cell(row, col+1).value
+
+            # Check that the requirement is not empty before adding
+            if [f for f in req.values() if f]:
+                reqmodule.add_req(req)
+
+    for submodule in reqmodule.modules.values():
+        import_from_xls(submodule, req_xls, wb=wb)
 
 
 def import_from_markdown(reqmodule, req_md):
