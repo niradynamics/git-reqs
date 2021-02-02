@@ -6,6 +6,21 @@ from git_reqs.requirementmodule import requirement_module, init_module
 from git_reqs import importtools
 from git_reqs import exporttools
 
+def get_module(args):
+    project = requirement_module(args.project_root)
+    if args.module:
+        req_module = project.modules[args.module]
+        module_path = args.project_root + '/' + args.module
+    else:
+        req_module = project
+        module_path = args.project_root
+
+    if args.file:
+        file = args.file
+    else:
+        file = req_module.module_path + "/" + req_module.module_prefix + '.' + args.format
+
+    return project, req_module, module_path, file
 
 def init(args):
     if args.upgrade:
@@ -18,37 +33,33 @@ def init(args):
 
 
 def import_reqs(args):
-    project = requirement_module(args.project_root)
-    if args.module:
-        req_module = project.modules[args.module]
-        module_path = args.project_root + '/' + args.module
-    else:
-        req_module = project
-        module_path = args.project_root
+    project, req_module, module_path, file = get_module(args)
 
     if args.format == 'junit':
-        importtools.add_test_results(module_path, args.file)
+        importtools.add_test_results(module_path, file)
         project = requirement_module(args.project_root)
     elif args.format == 'xls':
-        importtools.import_from_xls(req_module, args.file)
+        importtools.import_from_xls(req_module, file)
     elif args.format == 'md':
-        importtools.import_from_markdown(req_module, args.file)
+        importtools.import_from_markdown(req_module, file)
+    elif args.format == 're.comments':
+        importtools.parse_requirement_links(project, file)
     else:
         assert False, "Invalid format. See available formats with git-reqs import --help"
 
     req_module.write_reqs()
 
+    if args.update_source and (args.format == 'xls' or args.format == 'md'):
+        export_reqs(args)
+
 
 def export_reqs(args):
-    project = requirement_module(args.project_root)
-    if args.module:
-        req_module = project.modules[args.module]
-    else:
-        req_module = project
+    project, req_module, module_path, file = get_module(args)
+
     if args.format == 'xls':
-        exporttools.convert_to_xls(req_module, os.path.abspath(args.project_root), args.module, os.path.abspath(__file__))
+        exporttools.convert_to_xls(req_module, file)
     elif args.format == 'md':
-        exporttools.convert_to_markdown(req_module)
+        exporttools.convert_to_markdown(req_module, file)
     else:
         assert False, "Invalid format. See available formats with git-reqs export --help"
 
@@ -57,11 +68,11 @@ def create_report(args):
     project = requirement_module(args.project_root)
 
     if args.type == 'relations':
-        exporttools.create_report(project, args.module)
+        exporttools.create_report(project, args.module, args.dont_show_output)
     elif args.type == 'bokeh':
         exporttools.draw_bokeh(project, args.req)
     elif args.type == 'test_coverage':
-        exporttools.draw_coverage_diagrams(project)
+        exporttools.draw_coverage_diagrams(project, args.dont_show_output)
     else:
         assert False, "Invalid format. See available formats with git-reqs report --help"
 
@@ -78,6 +89,8 @@ if __name__ == "__main__":
     export_parser.add_argument("--module", help="Name of requirement module")
     export_parser.add_argument(
         "--format", help="Export format, xls and md are valid")
+    export_parser.add_argument(
+        "--file", help="Path to file to import")
     export_parser.set_defaults(func=export_reqs)
 
     import_parser = subparsers.add_parser(
@@ -88,7 +101,9 @@ if __name__ == "__main__":
     import_parser.add_argument(
         "--format", help="Export format, xls and junit are valid")
     import_parser.add_argument(
-        "--file", help="Path to file to import, xls or junit is valid")
+        "--file", help="Path to file to import")
+    import_parser.add_argument(
+        "--update-source", action='store_false', help="Export git-reqs modifications back to source (default true)")
     import_parser.set_defaults(func=import_reqs)
 
     report_parser = subparsers.add_parser(
@@ -101,6 +116,8 @@ if __name__ == "__main__":
     report_parser.add_argument(
         "--req", help="Bokeh plot only for a certain req and its relations", default=None)
     report_parser.set_defaults(func=create_report)
+    report_parser.add_argument(
+        "--dont_show_output", action='store_true', help="Just save the resulting file, dont show the output (default true)")
 
     init_parser = subparsers.add_parser(
         "init", help="Init new requirement module")
