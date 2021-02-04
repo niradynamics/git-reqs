@@ -2,7 +2,7 @@ from distutils.core import setup
 setup(
   name = 'git_reqs',
   packages = ['git_reqs'],
-  version = '0.2.5',
+  version = '0.2.6',
   description = 'Simple requirement management system for developers based yaml, networkx and git',
   author = 'Jonas Josefsson',
   author_email = 'Jonas.josefsson@niradynamics.se',
@@ -11,14 +11,13 @@ setup(
   keywords = ['Requirements', 'gitreqs'],
    install_requires=[
            'junitparser',
-           'matplotlib',
            'networkx',
            'numpy',
-           'pydot',
            'PyYAML',
            'xlrd',
            'xlwt',
-           'GitPython'
+           'GitPython',
+           'bokeh'
       ],
   classifiers=[
     'Development Status :: 3 - Alpha',
