@@ -351,6 +351,7 @@ class requirement_module:
                     # Ok for nx to add node that already exists
                     self.reqs.add_node(testname + '_result', result=result,
                                        non_stored_fields={'color': color, 'link_status_updated': True}, Type='Test-Result', Description=case.name)
+                    self.reqs.nodes[testname + '_result']['Req-Id'] = testname.split('_')[-1] + '_result'
                     self.reqs.add_edge(testname, testname + '_result', type='Test-Result')
                 elif connect_with_naming_convention:
                     self.reqs.add_node(case.name + '_result', result=result,

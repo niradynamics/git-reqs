@@ -2,7 +2,7 @@ from distutils.core import setup
 setup(
   name = 'git_reqs',
   packages = ['git_reqs'],
-  version = '0.2.9',
+  version = '0.3.0',
   description = 'Simple requirement management system for developers based yaml, networkx and git',
   author = 'Jonas Josefsson',
   author_email = 'Jonas.josefsson@niradynamics.se',
