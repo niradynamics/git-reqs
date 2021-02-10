@@ -29,7 +29,7 @@ def convert_to_xls(reqmodule, file):
 
 
 def convert_to_markdown(reqmodule, file, hugo=False):
-    md_file = open(file)
+    md_file = open(file, 'w')
     if hugo:
         md_file.write('---\n'
                       'title: ' + os.path.basename(reqmodule.module_path) + '\n' 
