@@ -13,7 +13,10 @@ class requirement_module:
     def __init__(self, module_path="", parent_prefix="", root_module=True):
         self.parent_prefix = parent_prefix
         self.module_path = module_path
-        self.git_repo = git.Repo(self.module_path, search_parent_directories=True)
+        try:
+            self.git_repo = git.Repo(self.module_path, search_parent_directories=True)
+        except:
+            self.git_repo = None
 
         if os.path.exists(module_path + '/config.yaml'):
             with open(module_path + '/config.yaml', 'r') as config_file:
@@ -205,12 +208,13 @@ class requirement_module:
         self.config['req_version'] = FORMAT_VERSION
         with open(self.module_path + '/config.yaml', 'w') as config_file:
             yaml.dump(self.config, config_file)
-        self.git_repo.git.add(self.module_path + '/config.yaml')
+        if self.git_repo:
+            self.git_repo.git.add(self.module_path + '/config.yaml')
         self.write_reqs()
 
-        if os.path.exists(self.module_path + '/module-prefix.yaml'):
+        if self.git_repo and os.path.exists(self.module_path + '/module-prefix.yaml'):
             self.git_repo.git.rm(self.module_path + '/module-prefix.yaml')
-        if os.path.exists(self.module_path + '/modules.yaml'):
+        if self.git_repo and os.path.exists(self.module_path + '/modules.yaml'):
             self.git_repo.git.rm(self.module_path + '/modules.yaml')
 
     def clear_ordered_req_list(self):
@@ -278,7 +282,8 @@ class requirement_module:
 
             with open(self.module_path + '/' + id + '.yaml', 'w') as req_file:
                 yaml.dump(self.reqs.nodes[req_name], req_file)
-            self.git_repo.git.add(self.module_path + '/' + id + '.yaml')
+            if self.git_repo:
+                self.git_repo.git.add(self.module_path + '/' + id + '.yaml')
             if not id in self.used_ids:
                 self.used_ids.append(id)
 
@@ -291,7 +296,8 @@ class requirement_module:
                     del_req['Status'] = 'deleted'
                 with open(file_path, 'w') as del_req_file:
                     yaml.dump(del_req, del_req_file)
-                self.git_repo.git.add(file_path)
+                if self.git_repo:
+                    self.git_repo.git.add(file_path)
 
 
         # Write module files
@@ -302,11 +308,13 @@ class requirement_module:
         if self.config['req_version'] >= 0.2:
             with open(self.module_path + '/used-ids.yaml', 'w') as used_ids_file:
                 yaml.dump(self.used_ids, used_ids_file)
-            self.git_repo.git.add(self.module_path + '/used-ids.yaml')
+            if self.git_repo:
+                self.git_repo.git.add(self.module_path + '/used-ids.yaml')
 
         with open(self.module_path + '/next-id.yaml', 'w') as next_id_file:
             yaml.dump(self.next_id, next_id_file)
-            self.git_repo.git.add(self.module_path + '/reqs.yaml',
+            if self.git_repo:
+                self.git_repo.git.add(self.module_path + '/reqs.yaml',
                                   self.module_path + '/next-id.yaml')
 
         for _, module in self.modules.items():
@@ -327,11 +335,13 @@ class requirement_module:
 
         for suite in test_results:
             for case in suite:
-                if case.result is None:
+                if not case.result:
                     result = 'Passed'
                     color = 'green'
                 else:
-                    result = case.result.tostring()
+                    import pdb
+                    pdb.set_trace()
+                    result = str(case.result)
                     color = 'red'
 
                 match = re.search(pattern, case.name)

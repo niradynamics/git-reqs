@@ -212,6 +212,7 @@ def draw_coverage_diagrams(reqmodule, dont_show_output=False):
 
         # ending angle values
     end_angle = start_angle[1:] + [math.radians(0)]
+    end_angle[-1] = math.radians(360)
 
     # center of the pie chart
     x = 0
