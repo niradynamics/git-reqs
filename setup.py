@@ -14,9 +14,8 @@ setup(
            'networkx',
            'numpy',
            'pydot',
+           'openpyxl',
            'PyYAML',
-           'xlrd',
-           'xlwt',
            'GitPython',
            'bokeh'
       ],

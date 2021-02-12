@@ -1,8 +1,8 @@
 Description: It should be possible to link requirements, relatively to other modules
 Formatting: Requirement
-Internal: 1.0
+Internal: '1'
 Req-Id: '11'
 Type: Requirement
 color: black
 downward_links: test:TEST_1
-upward_links: ''
+upward_links: None

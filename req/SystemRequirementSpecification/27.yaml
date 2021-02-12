@@ -1,9 +1,9 @@
 Description: When importing requirements, links must be checked so they are not be
   specified both ways. They should only be stored in one side of the requirement pair.
 Formatting: Requirement
-Internal: 1.0
+Internal: '1'
 Req-Id: '27'
 Type: Requirement
 color: black
-downward_links: ''
-upward_links: ''
+downward_links: None
+upward_links: None

@@ -1,9 +1,9 @@
 Description: Gitreqs is a simple requirement tool based on git (or some other version
   management system) and python
 Formatting: Italic
-Internal: 1.0
+Internal: '1'
 Req-Id: '2'
 Type: Info
 color: black
-downward_links: ''
-upward_links: ''
+downward_links: None
+upward_links: None

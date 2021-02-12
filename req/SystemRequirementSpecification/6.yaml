@@ -1,8 +1,8 @@
 Description: It shall be possible to link requirements to other requrements
 Formatting: Requirement
-Internal: 1.0
+Internal: '1'
 Req-Id: '6'
 Type: Requirement
 color: black
 downward_links: parent:SRS_7, parent:SRS_8,  parent:SRS_9, parent:SRS_10
-upward_links: ''
+upward_links: None

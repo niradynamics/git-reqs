@@ -1,8 +1,8 @@
 Description: It should be possible to export a module to xls
 Formatting: Requirement
-Internal: 1.0
+Internal: '1'
 Req-Id: '20'
 Type: Requirement
 color: black
-downward_links: ''
-upward_links: ''
+downward_links: None
+upward_links: None
