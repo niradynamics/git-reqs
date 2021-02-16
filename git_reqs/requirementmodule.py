@@ -12,7 +12,7 @@ import re
 class requirement_module:
     def __init__(self, module_path="", parent_prefix="", root_module=True):
         self.parent_prefix = parent_prefix
-        self.module_path = module_path
+        self.module_path = os.path.abspath(module_path)
         try:
             self.git_repo = git.Repo(self.module_path, search_parent_directories=True)
         except:
@@ -27,7 +27,7 @@ class requirement_module:
 
 
         if self.config['req_version'] < 0.2:
-            if os.path.exists(module_path + '/config.yaml'):
+            if os.path.exists(module_path + '/module-prefix.yaml'):
                 with open(module_path + '/module-prefix.yaml', 'r') as proj_pref_file:
                     self.config['module_prefix'] = yaml.safe_load(proj_pref_file)
             else:
@@ -80,7 +80,7 @@ class requirement_module:
                 for test_file in test_result_files:
                     self.import_test_results(test_file)
         if root_module:
-            for req in self.reqs:
+            for req in self.reqs.copy():
                 self.update_link_status(req)
 
     def read_reqs(self):
@@ -103,35 +103,6 @@ class requirement_module:
             self.reqs.add_node(req_name)
             for field in req.keys():
 
-                # Create links between linked nodes
-                if "links" in field:
-                    links = req[field].split(',')
-                    for link in links:
-                        if ':' in link:
-                            link_type, linked_req = link.split(':')
-                            link_type = link_type.strip()
-                            # Don't add project prefix to extern links
-                            if 'extern' not in link_type:
-                                linked_req = self.parent_prefix + '_' + linked_req.strip()
-
-                            # Verify that the requirement is not linked two ways.
-                            uptest = (linked_req, req_name) in self.reqs.edges.keys(
-                            ) and self.reqs.edges[(linked_req, req_name)]['type'] == link_type
-                            downtest = (req_name, linked_req) in self.reqs.edges.keys(
-                            ) and self.reqs.edges[(req_name, linked_req)]['type'] == link_type
-                            assert(not (uptest and downtest))
-
-                            if "upward" in field:
-                                self.reqs.add_edge(
-                                    linked_req, req_name, type=link_type)
-                            else:
-                                self.reqs.add_edge(
-                                    req_name, linked_req, type=link_type)
-                            self.reqs.nodes[linked_req]['non_stored_fields'] = {}
-                            self.reqs.nodes[linked_req]['non_stored_fields']['Internal'] = False
-                            self.reqs.nodes[linked_req]['non_stored_fields']['color'] = 'gray'
-                            self.reqs.nodes[linked_req]['non_stored_fields']['link_status_updated'] = False
-
                 if not field in fields:
                     fields.append(field)
 
@@ -149,6 +120,43 @@ class requirement_module:
 
     def update_link_status(self, req, subgraph=None):
         if not self.reqs.nodes[req]['non_stored_fields']['link_status_updated']:
+            for field in ['upward_links', 'downward_links']:
+                # Create links between linked nodes
+                if field in self.reqs.nodes[req].keys():
+                    links = self.reqs.nodes[req][field].split(',')
+                    for link in links:
+                        if ':' in link:
+                            link_type, linked_req = link.split(':')
+                            link_type = link_type.strip()
+                            linked_req = linked_req.strip()
+                            # Don't add project prefix to extern links
+                            if 'extern' not in link_type:
+                                # Search if req is existing on any level
+                                for d in range(1, len(req.split('_'))+1):
+                                    linked_req_full = '_'.join(req.split('_')[:-d] + [linked_req])
+                                    if linked_req_full in self.reqs.nodes.keys():
+                                        break
+
+                                linked_req = linked_req_full
+
+                            # Verify that the requirement is not linked two ways.
+                            uptest = (linked_req, req) in self.reqs.edges.keys(
+                            ) and self.reqs.edges[(linked_req, req)]['type'] == link_type
+                            downtest = (req, linked_req) in self.reqs.edges.keys(
+                            ) and self.reqs.edges[(req, linked_req)]['type'] == link_type
+                            assert (not (uptest and downtest))
+
+                            if "upward" in field:
+                                self.reqs.add_edge(
+                                    linked_req, req, type=link_type)
+                            else:
+                                self.reqs.add_edge(
+                                    req, linked_req, type=link_type)
+                            self.reqs.nodes[linked_req]['non_stored_fields'] = {}
+                            self.reqs.nodes[linked_req]['non_stored_fields']['Internal'] = False
+                            self.reqs.nodes[linked_req]['non_stored_fields']['color'] = 'gray'
+                            self.reqs.nodes[linked_req]['non_stored_fields']['link_status_updated'] = False
+
             if subgraph is None:
                 subgraph = self.reqs
 
@@ -196,8 +204,7 @@ class requirement_module:
 
             self.reqs.nodes[req]['non_stored_fields']['link_status_updated'] = True
 
-	
-	# Propagates the reference of the full project graph to all modules
+    # Propagates the reference of the full project graph to all modules
     # This is so that changes can be done on any level, and all requirements shall only exist once.
     def update_to_root_graph(self, root_reqs):
         self.reqs = root_reqs
@@ -346,7 +353,13 @@ class requirement_module:
 
                 match = re.search(pattern, case.name)
                 if match:
-                    testname = '_'.join([self.module_prefix.split('_')[0],match.groups()[0]])
+                    # Search if test is existing on any level
+                    testname_full = '_'.join([self.module_prefix, match.groups()[0]])
+                    for d in range(1, len(self.module_prefix.split('_')) + 1):
+                        if testname_full in self.reqs.nodes.keys():
+                            break
+                        testname_full = '_'.join(self.module_prefix.split('_')[:-d] + [match.groups()[0]])
+                    testname = testname_full
                     linktype = match.groups()[1]
                     # Ok for nx to add node that already exists
                     self.reqs.add_node(testname + '_result', result=result,

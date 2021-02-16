@@ -40,7 +40,7 @@ def import_reqs(args):
     if args.format == 'junit':
         importtools.add_test_results(module_path, file)
         project = requirement_module(args.project_root)
-    elif args.format == 'xls':
+    elif args.format == 'xls' or args.format == 'xlsx':
         importtools.import_from_xls(req_module, file)
     elif args.format == 'md':
         importtools.import_from_markdown(req_module, file)

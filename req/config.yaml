@@ -1,0 +1,6 @@
+module_prefix: 'git-reqs'
+modules:
+- SystemRequirementSpecification
+- TestSpecification
+req_number_format: numbers
+req_version: 0.3

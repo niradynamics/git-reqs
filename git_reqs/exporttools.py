@@ -74,6 +74,8 @@ def convert_to_markdown(reqmodule, hugo=False):
                           'weight: 1\n'
                           'markup: mmark\n'
                            '---\n')
+        else:
+            md_file = open(reqmodule.module_path + "/" + reqmodule.module_prefix + ".md", 'w')
 
         for req in reqmodule.ordered_req_names:
 

@@ -27,6 +27,8 @@ def import_from_xls(reqmodule, req_xls, wb=None):
                 # nor the 'non_stored_fields' columns
                 if field and field != 'non_stored_fields':
                     req[field] = sheet.cell(row, col+1).value
+                    if not req[field] or req[field] == 'None':
+                        req[field] = ''
 
             # Check that the requirement is not empty before adding
             if [f for f in req.values() if f]:
