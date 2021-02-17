@@ -1,9 +1,9 @@
 Description: It should be possible to have one requirement per table row  | with columns
   | and more columns |
 Formatting: Table
-Internal: 1.0
+Internal: '1'
 Req-Id: '17'
 Type: Requirement
 color: black
-downward_links: ''
-upward_links: ''
+downward_links: None
+upward_links: None

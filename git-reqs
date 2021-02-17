@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 import sys
 import os
+import subprocess
+import platform
 from argparse import ArgumentParser
 from git_reqs.requirementmodule import requirement_module, init_module
 from git_reqs import importtools
@@ -29,7 +31,7 @@ def init(args):
     else:
         assert args.module_prefix, "Module prefix is required"
         init_module(
-            args.parent_path, args.module, args.module_prefix, args.req_numbering_format)
+            args.parent_path, args.module, args.module_prefix, args.req_numbering_format, args.root_module)
 
 
 def import_reqs(args):
@@ -38,7 +40,7 @@ def import_reqs(args):
     if args.format == 'junit':
         importtools.add_test_results(module_path, file)
         project = requirement_module(args.project_root)
-    elif args.format == 'xls':
+    elif args.format == 'xls' or args.format == 'xlsx':
         importtools.import_from_xls(req_module, file)
     elif args.format == 'md':
         importtools.import_from_markdown(req_module, file)
@@ -51,15 +53,38 @@ def import_reqs(args):
 
     if args.update_source and (args.format == 'xls' or args.format == 'md'):
         export_reqs(args)
+def edit_reqs(args):
+    project = requirement_module(args.project_root)
+    if args.module:
+        req_module = project.modules[args.module]
+    else:
+        req_module = project
+
+    file = exporttools.convert_to_xls(req_module)
+    print(platform.system())
+    if platform.system() == 'Darwin':
+        cmd = ['open', '-W', file]
+    elif platform.system() == 'Linux':
+        cmd = ['xdg-open', file]
+    else:
+        cmd = ['start', file]
+
+    p = subprocess.Popen(cmd)
+    print('Waiting for edit application to finish...')
+    p.wait()
+
+    importtools.import_from_xls(req_module, file)
+    req_module.write_reqs()
+
 
 
 def export_reqs(args):
     project, req_module, module_path, file = get_module(args)
 
     if args.format == 'xls':
-        exporttools.convert_to_xls(req_module, file)
+        exporttools.convert_to_xls(req_module)
     elif args.format == 'md':
-        exporttools.convert_to_markdown(req_module, file)
+        exporttools.convert_to_markdown(req_module)
     else:
         assert False, "Invalid format. See available formats with git-reqs export --help"
 
@@ -81,6 +106,13 @@ def create_report(args):
 if __name__ == "__main__":
     args_parser = ArgumentParser()
     subparsers = args_parser.add_subparsers()
+
+    edit_parser = subparsers.add_parser(
+        "edit", help="Edit requirement module with excel")
+    edit_parser.add_argument(
+        "--project_root", help="Root path to the req project", default=os.getcwd())
+    edit_parser.add_argument("--module", help="Name of requirement module")
+    edit_parser.set_defaults(func=edit_reqs)
 
     export_parser = subparsers.add_parser(
         "export", help="Read requirement module")
@@ -131,6 +163,9 @@ if __name__ == "__main__":
         "--req_numbering_format", help="Numbering format of the reqs, numbers or time_hash are valid", default='time_hash')
     init_parser.add_argument(
         "--upgrade", action='store_true', help="Upgrade existing module to current format version")
+    init_parser.add_argument(
+        "--root_module", action='store_true', help="Set the new module as a root module, "
+                                                   "i.e it will not contain any requirements, only other modules")
     init_parser.set_defaults(func=init)
 
     args = args_parser.parse_args(sys.argv[1:])

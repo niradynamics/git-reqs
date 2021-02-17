@@ -1,0 +1,4 @@
+module_prefix: 'TEST'
+modules: []
+req_number_format: numbers
+req_version: 0.3

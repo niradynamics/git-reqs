@@ -1,9 +1,9 @@
 Description: It should be possible to create a report showing the a part of the requirement
   tree containing each requirement
 Formatting: Requirement
-Internal: 1.0
+Internal: '1'
 Req-Id: '22'
 Type: Requirement
 color: black
-downward_links: ''
-upward_links: ''
+downward_links: None
+upward_links: None

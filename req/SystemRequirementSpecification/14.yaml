@@ -1,8 +1,8 @@
 Description: Table example | Col1 | Col2 |
 Formatting: Table-Heading
-Internal: 1.0
+Internal: '1'
 Req-Id: '14'
 Type: Info
 color: black
-downward_links: ''
-upward_links: ''
+downward_links: None
+upward_links: None

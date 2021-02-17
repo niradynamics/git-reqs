@@ -1,5 +1,5 @@
 import os.path
-import xlwt
+from openpyxl import load_workbook, Workbook
 import networkx as nx
 from networkx.drawing.nx_pydot import to_pydot, graphviz_layout
 
@@ -11,88 +11,134 @@ from bokeh.layouts import column
 from bokeh.palettes import Spectral4, RdGy6, Pastel2
 from bokeh.plotting import figure, from_networkx
 from bokeh.models import ColumnDataSource, LabelSet
+from bokeh.embed import json_item
 import math
+import json
 
-def convert_to_xls(reqmodule, file):
-    workbook = xlwt.Workbook()
-    sheet = workbook.add_sheet('Reqs')
-
-    for i, field in enumerate(reqmodule.fields):
-        for k, req in enumerate(reqmodule.ordered_req_names):
-            if field == "Req-Id":
-                sheet.write(k+1, i, req)
-            elif field in reqmodule.reqs.nodes[req].keys():
-                sheet.write(k+1, i, reqmodule.reqs.nodes[req][field])
-
-        sheet.write(0, i, field)
-    workbook.save(file)
-
-
-def convert_to_markdown(reqmodule, file, hugo=False):
-    md_file = open(file, 'w')
-    if hugo:
-        md_file.write('---\n'
-                      'title: ' + os.path.basename(reqmodule.module_path) + '\n' 
-                      'weight: 1\n'
-                      'markup: mmark\n'
-                       '---\n')
-        
-    for req in reqmodule.ordered_req_names:
-
-        
-        if 'Formatting' in reqmodule.reqs.nodes[req].keys():
-            formatting = reqmodule.reqs.nodes[req]['Formatting']
+def convert_to_xls(reqmodule, existing_workbook=None):
+    if not existing_workbook:
+        if 'xls-template' in reqmodule.config.keys() \
+                and os.path.exists(reqmodule.module_path + '/' + reqmodule.config['xls-template']):
+            workbook = load_workbook(reqmodule.module_path + '/' + reqmodule.config['xls-template'])
         else:
-            formatting = ''
+            workbook = Workbook()
+    else:
+        workbook = existing_workbook
 
-        if formatting.startswith('Heading'):
-            if '_' in formatting:
-                heading_level = int(formatting.split('_')[1])
-            else:
-                heading_level = 1
-            preformatting = '#'*heading_level
-            description = ' ' + reqmodule.reqs.nodes[req]['Description']
-            req_nr_format = '*[' + req + ']*'
-            line_ending = '\n\n'
-        elif 'Table' in formatting: 
-            preformatting = '|'
-            # Handle both |a|b|c| and a|b|c
-            description = '|'.join([x for x in reqmodule.reqs.nodes[req]['Description'].split('|') if x])
-            if 'Heading' in formatting:
-                description += '| Req-Id |'
-                description += '\n' + '|' + '|'.join(['-'*len(x) for x in description.split('|') if x])
-            req_nr_format = '| *' + req + '*'
-            line_ending = ' |\n'
-        elif 'BulletList' in formatting: 
-            if '_' in formatting:
-                bullet_level = int(formatting.split('_')[1])
-            else:
-                bullet_level = 1
-            preformatting = '  '*bullet_level + '- '
-            description = reqmodule.reqs.nodes[req]['Description']
-            req_nr_format = '*[' + req + ']*'
-            line_ending = '\n\n'
-        elif 'Italic' in formatting: 
-            preformatting = ''
-            description = '*' + reqmodule.reqs.nodes[req]['Description'] + '*'
-            req_nr_format = '*[' + req + ']*'
-            line_ending = '\n\n'
+    if len(reqmodule.ordered_req_names) > 0 or \
+            ('root_module' in reqmodule.config.keys() and not reqmodule.config['root_module']):
+        sheet = workbook.copy_worksheet(workbook[workbook.sheetnames[0]])
+        sheet.title = reqmodule.module_prefix
+
+
+        for i, field in enumerate(reqmodule.fields):
+            for k, req in enumerate(reqmodule.ordered_req_names):
+                if field == "Req-Id":
+                    sheet.cell(k+2, i+1, req)
+                elif field in reqmodule.reqs.nodes[req].keys():
+                    sheet.cell(k+2, i+1, reqmodule.reqs.nodes[req][field])
+
+            sheet.cell(1, i+1, field)
+
+        # Make sure the template is cleared
+        if sheet.max_row > len(reqmodule.ordered_req_names):
+            sheet.delete_rows(len(reqmodule.ordered_req_names)+2, sheet.max_row)
+
+        if sheet.max_column > len(reqmodule.fields):
+            sheet.delete_cols(len(reqmodule.fields)+1, sheet.max_column)
+
+    for submodule in reqmodule.modules.values():
+        convert_to_xls(submodule, existing_workbook=workbook)
+
+    if not existing_workbook:
+        workbook.remove(workbook[workbook.sheetnames[0]])
+        file = reqmodule.module_path + "/" + reqmodule.module_prefix + ".xlsx"
+        workbook.save(file)
+
+        return file
+
+    else:
+        return ""
+
+
+def convert_to_markdown(reqmodule, hugo=False):
+    if len(reqmodule.ordered_req_names) > 0 or \
+            ('root_module' in reqmodule.config.keys() and not reqmodule.config['root_module']):
+
+        if hugo:
+            if not os.path.exists(reqmodule.module_path + "/Requirements/"):
+                os.makedirs(reqmodule.module_path + "/Requirements/")
+            md_file = open(reqmodule.module_path + "/Requirements/" + "index.md", 'w')
+            md_file.write('---\n'
+                          'title: ' + os.path.basename(reqmodule.module_path) + '\n' 
+                          'weight: 1\n'
+                          'markup: mmark\n'
+                           '---\n')
         else:
-            preformatting = ''
-            description = reqmodule.reqs.nodes[req]['Description']
-            req_nr_format = '*[' + req + ']*'
-            line_ending = '\n\n'
+            md_file = open(reqmodule.module_path + "/" + reqmodule.module_prefix + ".md", 'w')
 
-        md_text = preformatting + description
-        if reqmodule.reqs.nodes[req]['Type'] == 'Requirement':
-            md_text += ' ' + req_nr_format
-        md_text += line_ending
-
-        md_file.write(md_text) 
-    md_file.close()
+        for req in reqmodule.ordered_req_names:
 
 
-def create_report(project, reqmodule_name, dont_show_output=False):
+            if 'Formatting' in reqmodule.reqs.nodes[req].keys():
+                formatting = reqmodule.reqs.nodes[req]['Formatting']
+            else:
+                formatting = ''
+
+            if formatting.startswith('Heading'):
+                if '_' in formatting:
+                    heading_level = int(formatting.split('_')[1])
+                else:
+                    heading_level = 1
+                preformatting = '#'*heading_level
+                description = ' ' + reqmodule.reqs.nodes[req]['Description']
+                req_nr_format = '*[' + req + ']*'
+                line_ending = '\n\n'
+            elif 'Table' in formatting:
+                preformatting = '|'
+                # Handle both |a|b|c| and a|b|c
+                description = '|'.join([x for x in reqmodule.reqs.nodes[req]['Description'].split('|') if x])
+                if 'Heading' in formatting:
+                    description = ' Req-Id |' + description
+                    description += '\n' + '|' + '|'.join(['-'*len(x) for x in description.split('|') if x])
+                req_nr_format = '*' + req + '* |'
+                line_ending = ' |\n'
+            elif 'BulletList' in formatting:
+                if '_' in formatting:
+                    bullet_level = int(formatting.split('_')[1])
+                else:
+                    bullet_level = 1
+                preformatting = '  '*bullet_level + '- '
+                description = reqmodule.reqs.nodes[req]['Description']
+                req_nr_format = '*[' + req + ']*'
+                line_ending = '\n\n'
+            elif 'Italic' in formatting:
+                preformatting = ''
+                description = '*' + reqmodule.reqs.nodes[req]['Description'] + '*'
+                req_nr_format = '*[' + req + ']*'
+                line_ending = '\n\n'
+            else:
+                preformatting = ''
+                description = reqmodule.reqs.nodes[req]['Description']
+                req_nr_format = '*[' + req + ']*'
+                line_ending = '\n\n'
+
+            if reqmodule.reqs.nodes[req]['Type'] == 'Requirement' or \
+               reqmodule.reqs.nodes[req]['Type'] == 'Testcase':
+                description = req_nr_format + ' ' + description
+            md_text = preformatting + description
+
+            md_text += line_ending
+
+            md_file.write(md_text)
+        md_file.close()
+
+    # Export all submodules recursivly
+    for submodule in reqmodule.modules.values():
+        convert_to_markdown(submodule, hugo=hugo)
+
+
+def create_report(project, reqmodule_name, dont_show_output=False, at_every_level=False, hugo=False):
 
     graphs = column()
     if reqmodule_name:
@@ -100,7 +146,8 @@ def create_report(project, reqmodule_name, dont_show_output=False):
     else:
         reqmodule = project
 
-    output_file(reqmodule.module_path + "/" + reqmodule.module_prefix + "_relations_report.html")
+    if not hugo:
+        output_file(reqmodule.module_path + "/" + reqmodule.module_prefix + "_relations_report.html")
 
     for req in reqmodule.ordered_req_names:
         tree = get_tree_graph(reqmodule, req)
@@ -108,10 +155,37 @@ def create_report(project, reqmodule_name, dont_show_output=False):
         table = get_table_of_subgraph_reqs(subgraph, reqmodule.fields)
         graphs.children.append(tree)
         graphs.children.append(table)
-    if dont_show_output:
-        save(graphs)
-    else:
-        show(graphs)
+
+    if reqmodule.ordered_req_names > 0:
+        if hugo:
+            # Generate data as output, need short code and script headers accordig to:
+            # https://discourse.gohugo.io/t/embed-html-file-in-page/16047/7
+            file_name = reqmodule.module_prefix + "_relations_report"
+
+            if not os.path.exists(reqmodule.module_path + "/RequirementRelationsReport/resources/"):
+                os.makedirs(reqmodule.module_path + "/RequirementRelationsReport/resources/")
+
+            with open(reqmodule.module_path + "/RequirementRelationsReport/resources/" + file_name + ".json", "w") as json_file:
+                json.dump(json_item(graphs, file_name), json_file)
+
+            with open(reqmodule.module_path + "/RequirementRelationsReport/index.md", "w") as md_file:
+                md_file.write('---\n'
+                              'title: ' + reqmodule.module_prefix + "_relations_report" + '\n'
+                              'weight: 1\n'
+                              'markup: mmark\n'
+                              '---\n')
+                md_file.write("{{%% bokeh \"resources/%s.json\" %%}}\n" % file_name)
+
+        elif dont_show_output:
+            save(graphs)
+        else:
+            show(graphs)
+
+    if at_every_level:
+        for submodule in reqmodule.modules.values():
+            create_report(submodule, "", dont_show_output=dont_show_output, at_every_level=at_every_level, hugo=hugo)
+
+
 
 def get_empty_struct():
     req_group_fields = ['Req-Ids', 'result', 'leaves', 'fully-tested', 'Description']
@@ -327,7 +401,6 @@ def get_tree_graph(reqmodule, req):
             colors.append(color_mapper['gray'])
     # Get the unique list
     fields = list(set(fields))
-    print(fields)
 
 
     pos = graphviz_layout(posG, prog='dot')

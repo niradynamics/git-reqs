@@ -1,8 +1,8 @@
 Description: Requirement ids shall not be reused
 Formatting: Requirement
-Internal: 1.0
+Internal: '1'
 Req-Id: '26'
 Type: Requirement
 color: black
-downward_links: ''
-upward_links: ''
+downward_links: None
+upward_links: None
