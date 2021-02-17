@@ -12,10 +12,10 @@ class TestGitReqs(unittest.TestCase):
         if os.path.exists("test_init"):
             shutil.rmtree("test_init", ignore_errors=True)
 
-        os.system('../git-reqs init --module test_init --module_prefix TEST1 --root_module')
-        os.system('cd test_init && ../../git-reqs init --module test_init2 --module_prefix TEST2 --root_module')
-        os.system('cd test_init/test_init2 && ../../../git-reqs init --module test_init3 --module_prefix TEST3')
-        os.system('cd test_init/test_init2 && ../../../git-reqs init --module test_init4 --module_prefix TEST4 --req_numbering_format numbers')
+        self.assertEqual(os.system('../git-reqs init --module test_init --module_prefix TEST1 --root_module'), 0)
+        self.assertEqual(os.system('cd test_init && ../../git-reqs init --module test_init2 --module_prefix TEST2 --root_module'), 0)
+        self.assertEqual(os.system('cd test_init/test_init2 && ../../../git-reqs init --module test_init3 --module_prefix TEST3'), 0)
+        self.assertEqual(os.system('cd test_init/test_init2 && ../../../git-reqs init --module test_init4 --module_prefix TEST4 --req_numbering_format numbers'), 0)
 
         req_module = requirementmodule.requirement_module("./test_init")
 
@@ -48,8 +48,8 @@ class TestGitReqs(unittest.TestCase):
         if os.path.exists("test_export"):
             shutil.rmtree("test_export", ignore_errors=True)
 
-        os.system('../git-reqs init --module test_export --module_prefix TEST1')
-        os.system('cd test_export && ../../git-reqs init --module test_export2 --module_prefix TEST2 --root_module')
+        self.assertEqual(os.system('../git-reqs init --module test_export --module_prefix TEST1'), 0)
+        self.assertEqual(os.system('cd test_export && ../../git-reqs init --module test_export2 --module_prefix TEST2 --root_module'), 0)
 
         req_module = requirementmodule.requirement_module("./test_export")
 
@@ -73,9 +73,9 @@ class TestGitReqs(unittest.TestCase):
 
         req_module.write_reqs()
 
-        os.system(('../git-reqs export --project_root ./test_export --format md'))
-        os.system(('cd test_export && ../../git-reqs export --format xls'))
-        os.system(('cd test_export && ../../git-reqs export --module test_export2 --format xls'))
+        self.assertEqual(os.system(('../git-reqs export --project_root ./test_export --format md')), 0)
+        self.assertEqual(os.system(('cd test_export && ../../git-reqs export --format xls')), 0)
+        self.assertEqual(os.system(('cd test_export && ../../git-reqs export --module test_export2 --format xls')), 0)
 
         wb1 = load_workbook('./test_export/TEST1.xlsx')
 
@@ -102,8 +102,8 @@ class TestGitReqs(unittest.TestCase):
         if os.path.exists("test_import"):
             shutil.rmtree("test_import", ignore_errors=True)
 
-        os.system('../git-reqs init --module test_import --module_prefix TEST1 --req_numbering_format numbers')
-        os.system('cd test_import && ../../git-reqs init --module test_import2 --module_prefix TEST2 --root_module --req_numbering_format numbers')
+        self.assertEqual(os.system('../git-reqs init --module test_import --module_prefix TEST1 --req_numbering_format numbers'), 0)
+        self.assertEqual(os.system('cd test_import && ../../git-reqs init --module test_import2 --module_prefix TEST2 --root_module --req_numbering_format numbers'), 0)
 
         wb = Workbook()
 
@@ -136,7 +136,7 @@ class TestGitReqs(unittest.TestCase):
 
         wb.save("./test_import/TEST1.xlsx")
 
-        os.system(('cd test_import && ../../git-reqs import --format xlsx'))
+        self.assertEqual(os.system(('cd test_import && ../../git-reqs import --format xlsx')), 0)
 
 
         req_module = requirementmodule.requirement_module("./test_import")
@@ -150,8 +150,8 @@ class TestGitReqs(unittest.TestCase):
                 if field in test_1.keys():
                     self.assertEqual(req_module.modules["test_import2"].reqs.nodes["TEST1_TEST2_1"][field], test_1[field])
 
-        os.system(('../git-reqs import --project_root ./test_import --format xlsx'))
-        os.system(('cd test_import && ../../git-reqs import --format xls --file TEST1.xlsx'))
+        self.assertEqual(os.system(('../git-reqs import --project_root ./test_import --format xlsx')), 0)
+        self.assertEqual(os.system(('cd test_import && ../../git-reqs import --format xls --file TEST1.xlsx')), 0)
 
         shutil.rmtree("test_import", ignore_errors=True)
 
@@ -159,8 +159,8 @@ class TestGitReqs(unittest.TestCase):
         if os.path.exists("test_report"):
             shutil.rmtree("test_report", ignore_errors=True)
 
-        os.system('../git-reqs init --module test_report --module_prefix TEST1')
-        os.system('cd test_report && ../../git-reqs init --module test_report2 --module_prefix TEST2 --root_module')
+        self.assertEqual(os.system('../git-reqs init --module test_report --module_prefix TEST1'), 0)
+        self.assertEqual(os.system('cd test_report && ../../git-reqs init --module test_report2 --module_prefix TEST2 --root_module'), 0)
 
         req_module = requirementmodule.requirement_module("./test_report")
 
@@ -176,8 +176,8 @@ class TestGitReqs(unittest.TestCase):
 
         req_module.write_reqs()
 
-        os.system(('../git-reqs report --project_root ./test_report --type test_coverage --dont_show_output'))
-        os.system(('../git-reqs report --project_root ./test_report --type relations --dont_show_output'))
+        self.assertEqual(os.system(('../git-reqs report --project_root ./test_report --type test_coverage --dont_show_output')), 0)
+        self.assertEqual(os.system(('../git-reqs report --project_root ./test_report --type relations --dont_show_output')), 0)
 
         shutil.rmtree("test_report", ignore_errors=True)
         
@@ -185,11 +185,11 @@ class TestGitReqs(unittest.TestCase):
         if os.path.exists("test_links"):
             shutil.rmtree("test_links", ignore_errors=True)
 
-        os.system('../git-reqs init --module test_links --module_prefix ROOT --root_module')
-        os.system('cd test_links && ../../git-reqs init --module ProductSpec --module_prefix PROD')
-        os.system('cd test_links && ../../git-reqs init --module SubSystemRoot --module_prefix SubSystem')
-        os.system('cd test_links/SubSystemRoot && ../../../git-reqs init --module SystemRS --module_prefix SystemRS')
-        os.system('cd test_links/SubSystemRoot && ../../../git-reqs init --module Test --module_prefix Test')
+        self.assertEqual(os.system('../git-reqs init --module test_links --module_prefix ROOT --root_module'), 0)
+        self.assertEqual(os.system('cd test_links && ../../git-reqs init --module ProductSpec --module_prefix PROD'), 0)
+        self.assertEqual(os.system('cd test_links && ../../git-reqs init --module SubSystemRoot --module_prefix SubSystem'), 0)
+        self.assertEqual(os.system('cd test_links/SubSystemRoot && ../../../git-reqs init --module SystemRS --module_prefix SystemRS'), 0)
+        self.assertEqual(os.system('cd test_links/SubSystemRoot && ../../../git-reqs init --module Test --module_prefix Test'), 0)
 
         req_module = requirementmodule.requirement_module("./test_links")
         

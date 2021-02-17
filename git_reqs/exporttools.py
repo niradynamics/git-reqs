@@ -156,7 +156,7 @@ def create_report(project, reqmodule_name, dont_show_output=False, at_every_leve
         graphs.children.append(tree)
         graphs.children.append(table)
 
-    if reqmodule.ordered_req_names > 0:
+    if len(reqmodule.ordered_req_names) > 0:
         if hugo:
             # Generate data as output, need short code and script headers accordig to:
             # https://discourse.gohugo.io/t/embed-html-file-in-page/16047/7
